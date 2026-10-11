@@ -43,3 +43,7 @@ yarn-error.*
 
 # Local Firebase logs
 firebase-debug.log
+
+# Local Firebase debug logs
+firebase-debug.log
+firebase-debug.log.backup
