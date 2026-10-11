@@ -1,0 +1,79 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isHiveOwner(hiveId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/hives/$(hiveId)) &&
+        get(/databases/$(database)/documents/hives/$(hiveId)).data.ownerUid == request.auth.uid;
+    }
+
+    // 1. User Profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if false;
+
+      // Activity records under user
+      match /activity/{activityId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if false; // Append-only activity log
+      }
+    }
+
+    // 2. Hives Collection
+    match /hives/{hiveId} {
+      allow read: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.ownerUid == request.auth.uid; // Prevent ownership transfer
+      allow delete: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+
+      // Sensor readings subcollection under hive
+      match /readings/{readingId} {
+        allow read, create: if isHiveOwner(hiveId);
+        allow update, delete: if isHiveOwner(hiveId);
+      }
+    }
+
+    // 3. Batches Collection
+    match /batches/{batchId} {
+      allow read: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.quantity > 0 &&
+        isHiveOwner(request.resource.data.hiveId); // Must own the referenced hive
+      allow update: if isAuthenticated() &&
+        resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.ownerUid == request.auth.uid && // Prevent ownership transfer
+        request.resource.data.quantity > 0;
+      allow delete: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // 4. Public Consumer Batches Collection
+    match /public_batches/{batchCode} {
+      // Consumers can view verified batch info without authentication
+      allow read: if true;
+      // Only authenticated beekeepers can create, update, or remove batch records
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // Deny all other unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
