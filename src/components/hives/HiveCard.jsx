@@ -6,6 +6,7 @@ import { spacing, borderRadius, typography } from '../../constants/layout';
 import AppCard from '../common/AppCard';
 import StatusBadge from '../common/StatusBadge';
 import { formatTemperature, formatHumidity, formatWeight } from '../../utils/formatSensorValue';
+import { formatDate } from '../../utils/formatDate';
 
 export function HiveCard({ hive, onPress }) {
   if (!hive) return null;

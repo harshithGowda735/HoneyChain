@@ -31,6 +31,11 @@ service cloud.firestore {
         allow create: if isOwner(userId);
         allow update, delete: if false; // Append-only activity log
       }
+
+      // Private scheme bookmarks under user
+      match /saved_schemes/{schemeId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // 2. Hives Collection

@@ -1,56 +1,70 @@
 /**
  * HoneyChain Color Palette
- * Designed for mobile-first agricultural technology:
- * - Warm cream background
- * - Forest-green primary
- * - Honey-gold accents
+ * Government-Service Agricultural System Design:
+ * - Clean white card surfaces & warm neutral backgrounds
+ * - Deep Indian forest green primary action color
+ * - Restrained national saffron/amber accents
+ * - High accessible contrast for rural sunlight readability
  */
 
 export const colors = {
-  // Brand Core
-  primary: '#1B4332',        // Deep forest green
-  primaryLight: '#2D6A4F',   // Medium forest green
-  primarySoft: '#E8F5E9',    // Light forest tint
-  primaryMuted: '#52796F',
+  // Brand & Action Colors (Government Forest Green)
+  primary: '#1B4332',        // Deep forest green (accessible, formal, trustworthy)
+  primaryLight: '#2D6A4F',   // Secondary action green
+  primarySoft: '#E8F5E9',    // High-contrast light green tint
+  primaryMuted: '#52796F',   // Subdued green tone
 
-  accent: '#E69500',         // Rich honey gold
-  accentLight: '#F59E0B',    // Amber honey
-  accentSoft: '#FEF3C7',     // Soft honey glow
-  accentDeep: '#B45309',
+  // Restrained Saffron / Agricultural Accents
+  accent: '#E65100',         // Deep saffron / harvest amber
+  accentLight: '#F57C00',    // Warm saffron accent
+  accentSoft: '#FFF3E0',     // Gentle saffron background tint
+  accentDeep: '#BF360C',     // Dark saffron border/text
 
-  // Backgrounds & Surfaces
-  background: '#F9F6F0',     // Warm cream background
-  surface: '#FFFFFF',        // Pure white card surface
+  // Backgrounds & Surfaces (Clean, Warm Neutral)
+  background: '#F9F6F0',     // Warm cream / parchment background
+  surface: '#FFFFFF',        // Clean white card surface
   surfaceElevated: '#FFFFFF',
-  surfaceSubtle: '#F3EFE6',   // Slightly deeper cream
-  surfaceBorder: '#E7E1D4',   // Warm border
+  surfaceSubtle: '#F4EFE6',   // High clarity border / subtle card
+  surfaceBorder: '#E5DED1',   // Crisp accessible divider
 
-  // Text Hierarchy
-  textPrimary: '#1E2922',    // Deep organic dark slate
-  textSecondary: '#5A685D',  // Medium moss gray
-  textMuted: '#8C9B90',      // Soft earthy gray
-  textInverse: '#FFFFFF',    // White text on dark buttons
-  textAccent: '#B45309',
+  // Text Hierarchy (High Contrast)
+  textPrimary: '#17231B',    // Near-black organic slate
+  textSecondary: '#4A5B50',  // Accessible secondary moss gray
+  textMuted: '#78897E',      // Accessible subtle gray
+  textInverse: '#FFFFFF',    // Pure white on dark buttons
+  textAccent: '#BF360C',     // High-contrast saffron accent text
 
-  // Status Indicators
+  // Government Status Indicators
   status: {
     healthy: {
-      text: '#166534',
+      text: '#14532D',
       bg: '#DCFCE7',
       border: '#86EFAC',
-      indicator: '#22C55E',
+      indicator: '#16A34A',
+    },
+    active: {
+      text: '#14532D',
+      bg: '#DCFCE7',
+      border: '#86EFAC',
+      indicator: '#16A34A',
     },
     attention: {
-      text: '#92400E',
+      text: '#78350F',
       bg: '#FEF3C7',
       border: '#FDE68A',
-      indicator: '#F59E0B',
+      indicator: '#D97706',
+    },
+    warning: {
+      text: '#78350F',
+      bg: '#FEF3C7',
+      border: '#FDE68A',
+      indicator: '#D97706',
     },
     critical: {
-      text: '#991B1B',
+      text: '#7F1D1D',
       bg: '#FEE2E2',
       border: '#FCA5A5',
-      indicator: '#EF4444',
+      indicator: '#DC2626',
     },
     neutral: {
       text: '#374151',
@@ -60,20 +74,20 @@ export const colors = {
     },
   },
 
-  // Sensor Telemetry Colors
+  // Sensor & Telemetry Tokens
   sensor: {
-    temp: '#EA580C',         // Warm orange for temp
-    humidity: '#0284C7',     // Sky blue for humidity
-    weight: '#7C3AED',       // Purple for weight/production
-    battery: '#16A34A',      // Green for battery
+    temp: '#EA580C',         // Warm orange for temperature
+    humidity: '#0284C7',     // Water blue for humidity
+    weight: '#7C3AED',       // Purple for hive scale weight
+    battery: '#16A34A',      // Green for device battery
   },
 
   // Bottom Navigation
   tabBar: {
     background: '#FFFFFF',
-    border: '#E8E2D6',
+    border: '#E5DED1',
     activeTint: '#1B4332',
-    inactiveTint: '#8C9B90',
+    inactiveTint: '#78897E',
   },
 };
 

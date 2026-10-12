@@ -20,9 +20,11 @@ import EmptyState from '../components/common/EmptyState';
 import AppButton from '../components/common/AppButton';
 import { formatDate } from '../utils/formatDate';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import QRCodeModal from '../components/batches/QRCodeModal';
 import QRScannerModal from '../components/batches/QRScannerModal';
 import PublicVerificationModal from '../components/batches/PublicVerificationModal';
+import RecordHarvestModal from '../components/batches/RecordHarvestModal';
 
 const STAGE_OPTIONS = [
   'Harvested',
@@ -48,6 +50,7 @@ export function BatchesPage({
   onRefresh,
 }) {
   const { isRealAuthConnected } = useAuth();
+  const { t } = useLanguage();
 
   // Modals
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -78,27 +81,7 @@ export function BatchesPage({
     setDetailModalVisible(false);
   };
 
-  const openAddModal = (batchToEdit = null) => {
-    if (batchToEdit) {
-      setEditingBatchId(batchToEdit.id);
-      setSelectedHiveId(batchToEdit.hiveId || (hives[0]?.id || ''));
-      setHoneyType(batchToEdit.honeyType || batchToEdit.floralSource || '');
-      setQuantity(String(batchToEdit.quantity || batchToEdit.quantityKg || ''));
-      setMoisture(batchToEdit.moisture || batchToEdit.moistureContent || '');
-      setHarvestDate(batchToEdit.harvestDate || '');
-      setStage(batchToEdit.status || batchToEdit.stage || 'Harvested');
-      setNotes(batchToEdit.notes || '');
-    } else {
-      setEditingBatchId(null);
-      setSelectedHiveId(hives[0]?.id || '');
-      setHoneyType('');
-      setQuantity('');
-      setMoisture('');
-      setHarvestDate(new Date().toISOString().split('T')[0]);
-      setStage('Harvested');
-      setNotes('');
-    }
-    setFormError('');
+  const openAddModal = () => {
     setAddModalVisible(true);
   };
 
@@ -180,22 +163,22 @@ export function BatchesPage({
         {/* Page Header */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={globalStyles.screenTitle}>Honey Batches</Text>
+            <Text style={globalStyles.screenTitle}>{t('batchesListTitle')}</Text>
             <Text style={globalStyles.sectionSubtitle}>
-              {batches.length} registered honey {batches.length === 1 ? 'batch' : 'batches'}
+              {batches.length} {t('honeyBatches')}
             </Text>
           </View>
 
           <View style={styles.headerActions}>
             <AppButton
-              title="Scan QR"
+              title={t('scanQrBtn')}
               iconName="camera-outline"
               size="sm"
               variant="outline"
               onPress={() => setScannerModalVisible(true)}
             />
             <AppButton
-              title="Add Batch"
+              title={t('recordHarvestBtn')}
               iconName="add"
               size="sm"
               variant="primary"
@@ -226,7 +209,7 @@ export function BatchesPage({
           <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search batch code, floral source, or stage..."
+            placeholder={t('searchBatchesPlaceholder')}
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={onSearchChange}
@@ -243,18 +226,18 @@ export function BatchesPage({
         {loading && batches.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading harvest lots from Firestore...</Text>
+            <Text style={styles.loadingText}>{t('loading')}</Text>
           </View>
         ) : filteredBatches.length === 0 ? (
           <EmptyState
             icon="cube-outline"
-            title={batches.length === 0 ? 'No honey batches logged yet' : 'No batches found'}
+            title={batches.length === 0 ? t('noBatchesFound') : 'No batches found'}
             description={
               batches.length === 0
-                ? 'Record your first honey extraction lot using the "Add Batch" button above.'
+                ? t('noBatchesDesc')
                 : 'Try adjusting your search criteria.'
             }
-            actionTitle={batches.length === 0 ? 'Log First Batch' : 'Reset Search'}
+            actionTitle={batches.length === 0 ? t('recordHarvestBtn') : 'Reset Search'}
             onActionPress={() => {
               if (batches.length === 0) {
                 if (hives.length === 0) {
@@ -429,167 +412,17 @@ export function BatchesPage({
       </Modal>
 
       {/* Add / Edit Batch Modal */}
-      <Modal
+      {/* Controlled Record Harvest Modal */}
+      <RecordHarvestModal
         visible={addModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setAddModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>
-                  {editingBatchId ? 'Edit Honey Batch' : 'Log Harvest Batch'}
-                </Text>
-                <Text style={styles.modalSubtitle}>Save harvest lot records to Cloud Firestore</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setAddModalVisible(false)}
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {formError ? (
-              <View style={styles.formErrorBanner}>
-                <Ionicons name="alert-circle" size={16} color={colors.status.critical.text} />
-                <Text style={styles.formErrorText}>{formError}</Text>
-              </View>
-            ) : null}
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Select Source Hive (Strictly from user's hives) */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Source Hive Colony *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
-                  <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-                    {hives.map((h) => {
-                      const isSelected = selectedHiveId === h.id;
-                      return (
-                        <TouchableOpacity
-                          key={h.id}
-                          onPress={() => setSelectedHiveId(h.id)}
-                          style={[
-                            styles.hiveSelectChip,
-                            isSelected && styles.hiveSelectChipActive,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.hiveSelectText,
-                              isSelected && styles.hiveSelectTextActive,
-                            ]}
-                          >
-                            {h.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Floral Source / Honey Type *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Wildflower & Clover Honey"
-                  placeholderTextColor={colors.textMuted}
-                  value={honeyType}
-                  onChangeText={setHoneyType}
-                />
-              </View>
-
-              <View style={styles.rowInputs}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: spacing.sm }]}>
-                  <Text style={styles.inputLabel}>Quantity (kg) *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 45.5"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                    value={quantity}
-                    onChangeText={setQuantity}
-                  />
-                </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Moisture (% RH)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 17.2%"
-                    placeholderTextColor={colors.textMuted}
-                    value={moisture}
-                    onChangeText={setMoisture}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Harvest Date (YYYY-MM-DD)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="2026-10-11"
-                  placeholderTextColor={colors.textMuted}
-                  value={harvestDate}
-                  onChangeText={setHarvestDate}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Production Stage</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
-                  <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-                    {STAGE_OPTIONS.map((st) => (
-                      <TouchableOpacity
-                        key={st}
-                        onPress={() => setStage(st)}
-                        style={[
-                          styles.stageSelectBtn,
-                          stage === st && styles.stageSelectBtnActive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.stageSelectText,
-                            stage === st && styles.stageSelectTextActive,
-                          ]}
-                        >
-                          {st}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Harvest Notes</Text>
-                <TextInput
-                  style={[styles.textInput, { height: 75, textAlignVertical: 'top' }]}
-                  placeholder="Extraction notes, floral aromas, filtration details..."
-                  placeholderTextColor={colors.textMuted}
-                  multiline
-                  numberOfLines={3}
-                  value={notes}
-                  onChangeText={setNotes}
-                />
-              </View>
-
-              <AppButton
-                title={isSubmitting ? 'Saving...' : editingBatchId ? 'Update Batch' : 'Log Honey Batch'}
-                variant="primary"
-                size="lg"
-                loading={isSubmitting}
-                disabled={isSubmitting}
-                onPress={handleSaveBatch}
-                style={{ marginTop: spacing.md, marginBottom: spacing.xl }}
-              />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        hives={hives}
+        onClose={() => setAddModalVisible(false)}
+        onSubmitHarvest={onAddBatch}
+        onViewQrForBatch={(b) => {
+          onSelectBatch(b.id);
+          setQrModalVisible(true);
+        }}
+      />
 
       {/* Real QR Display & Print/Share Modal */}
       <QRCodeModal
@@ -617,6 +450,7 @@ export function BatchesPage({
       <PublicVerificationModal
         visible={verifyModalVisible}
         batchCode={verifyCode}
+        fallbackBatch={selectedBatch}
         onClose={() => {
           setVerifyModalVisible(false);
           setVerifyCode('');

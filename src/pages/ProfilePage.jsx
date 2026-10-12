@@ -1,81 +1,112 @@
 import React, { useState } from 'react';
 import {
-  ScrollView,
   View,
   Text,
-  StyleSheet,
-  Switch,
-  Modal,
   TextInput,
+  ScrollView,
+  StyleSheet,
   TouchableOpacity,
+  Modal,
   Alert,
+  Switch,
   ActivityIndicator,
+  Image,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../constants/layout';
 import { globalStyles } from '../styles/globalStyles';
-import AppCard from '../components/common/AppCard';
 import AppButton from '../components/common/AppButton';
-import config from '../constants/config';
+import AppCard from '../components/common/AppCard';
+import LanguageSelector from '../components/common/LanguageSelector';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { pickProfileImage } from '../services/storageService';
+
+const ENTITY_OPTIONS = [
+  { value: 'farmer', label: 'Individual Farmer' },
+  { value: 'fpo_shg', label: 'FPO / SHG Member' },
+  { value: 'enterprise', label: 'Commercial Beekeeper' },
+];
 
 export function ProfilePage() {
-  const { user, currentUser, userProfile, updateProfile, signOut } = useAuth();
-  const [tempUnitCelsius, setTempUnitCelsius] = useState(true);
+  const { user, userProfile, currentUser, updateProfile, signOut } = useAuth();
+  const { t } = useLanguage();
+
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // Edit Profile Modal State
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editDisplayName, setEditDisplayName] = useState('');
-  const [editApiaryName, setEditApiaryName] = useState('');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [editError, setEditError] = useState('');
+  // Edit Form Fields
+  const [formDisplayName, setFormDisplayName] = useState('');
+  const [formApiaryName, setFormApiaryName] = useState('');
+  const [formState, setFormState] = useState('');
+  const [formDistrict, setFormDistrict] = useState('');
+  const [formEntityType, setFormEntityType] = useState('farmer');
+  const [tempUnitCelsius, setTempUnitCelsius] = useState(true);
 
   const openEditModal = () => {
-    setEditDisplayName(userProfile?.displayName || user?.displayName || '');
-    setEditApiaryName(userProfile?.apiaryName || config.defaultApiaryName);
-    setEditError('');
+    setFormDisplayName(currentUser?.name || userProfile?.displayName || '');
+    setFormApiaryName(currentUser?.apiaryName || userProfile?.apiaryName || '');
+    setFormState(userProfile?.state || 'Karnataka');
+    setFormDistrict(userProfile?.district || '');
+    setFormEntityType(userProfile?.entityType || 'farmer');
     setEditModalVisible(true);
   };
 
   const handleSaveProfile = async () => {
-    if (!editDisplayName.trim()) {
-      setEditError('Please enter a display name.');
-      return;
-    }
-
-    setIsSavingProfile(true);
-    setEditError('');
-
+    setIsUpdating(true);
     try {
       await updateProfile({
-        displayName: editDisplayName.trim(),
-        apiaryName: editApiaryName.trim() || config.defaultApiaryName,
+        displayName: formDisplayName.trim(),
+        apiaryName: formApiaryName.trim(),
+        state: formState.trim(),
+        district: formDistrict.trim(),
+        entityType: formEntityType,
       });
       setEditModalVisible(false);
+      Alert.alert(t('success'), t('saveProfile') + ' ✓');
     } catch (err) {
-      setEditError(err?.message || 'Failed to update profile.');
+      Alert.alert(t('error'), err?.message || 'Failed to update profile.');
     } finally {
-      setIsSavingProfile(false);
+      setIsUpdating(false);
+    }
+  };
+
+  const handleChangePhoto = async () => {
+    setIsUploadingPhoto(true);
+    try {
+      const picked = await pickProfileImage();
+      if (picked && picked.persistentUrl) {
+        await updateProfile({
+          photoUrl: picked.persistentUrl,
+        });
+        Alert.alert(t('success'), t('photoUploaded'));
+      }
+    } catch (err) {
+      Alert.alert(t('error'), err?.message || 'Failed to update profile photo.');
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
   const handleSignOut = () => {
     Alert.alert(
-      'Sign Out',
+      t('signOut'),
       'Are you sure you want to sign out of HoneyChain?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: t('signOut'),
           style: 'destructive',
           onPress: async () => {
             setIsSigningOut(true);
             try {
               await signOut();
             } catch (err) {
-              Alert.alert('Error', err?.message || 'Failed to sign out.');
+              Alert.alert(t('error'), err?.message || 'Failed to sign out.');
             } finally {
               setIsSigningOut(false);
             }
@@ -86,13 +117,11 @@ export function ProfilePage() {
   };
 
   const getAvatarInitials = () => {
-    if (userProfile?.displayName) {
-      return userProfile.displayName.slice(0, 2).toUpperCase();
+    const name = currentUser?.name || userProfile?.displayName || '';
+    if (name) {
+      return name.slice(0, 2).toUpperCase();
     }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase();
-    }
-    return 'AP';
+    return 'BK';
   };
 
   return (
@@ -103,18 +132,43 @@ export function ProfilePage() {
       >
         {/* Page Header */}
         <View style={styles.header}>
-          <Text style={globalStyles.screenTitle}>Profile</Text>
+          <Text style={globalStyles.screenTitle}>{t('profileTitle')}</Text>
           <Text style={globalStyles.sectionSubtitle}>
-            Account credentials & apiary settings
+            {t('profileSubtitle')}
           </Text>
         </View>
 
         {/* Beekeeper Profile Card */}
         <AppCard elevation="card" style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>{getAvatarInitials()}</Text>
-            </View>
+            {/* Avatar with Photo or Fallback Initials */}
+            <TouchableOpacity
+              onPress={handleChangePhoto}
+              style={styles.avatarWrapper}
+              activeOpacity={0.8}
+              disabled={isUploadingPhoto}
+            >
+              {currentUser?.photoUrl ? (
+                <Image
+                  source={{ uri: currentUser.photoUrl }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarInitials}>{getAvatarInitials()}</Text>
+                </View>
+              )}
+
+              {/* Edit Camera Overlay Icon */}
+              <View style={styles.cameraIconBadge}>
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color={colors.surface} />
+                ) : (
+                  <Ionicons name="camera" size={13} color={colors.surface} />
+                )}
+              </View>
+            </TouchableOpacity>
+
             <View style={{ flex: 1 }}>
               <View style={styles.row}>
                 <Text style={styles.beekeeperName}>
@@ -125,9 +179,10 @@ export function ProfilePage() {
                   <Text style={styles.verifiedText}>Verified</Text>
                 </View>
               </View>
+
               <Text style={styles.beekeeperRole}>{currentUser?.role || 'Beekeeper'}</Text>
-              <Text style={styles.beekeeperEmail} numberOfLines={1}>
-                {user?.email}
+              <Text style={styles.beekeeperPhone}>
+                📱 {currentUser?.phoneNumber || user?.phoneNumber || 'Mobile Registered'}
               </Text>
             </View>
           </View>
@@ -143,16 +198,44 @@ export function ProfilePage() {
         </AppCard>
 
         {/* Apiary Information Card */}
-        <Text style={styles.sectionHeader}>Apiary Details</Text>
+        <Text style={styles.sectionHeader}>Apiary & Location</Text>
         <AppCard elevation="card" style={styles.infoCard}>
           <View style={styles.infoRow}>
             <View style={styles.infoIconBox}>
               <Ionicons name="home-outline" size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Facility Name</Text>
+              <Text style={styles.infoLabel}>{t('apiaryNameLabel')}</Text>
               <Text style={styles.infoValue}>
-                {currentUser?.apiaryName || config.defaultApiaryName}
+                {currentUser?.apiaryName || userProfile?.apiaryName || 'Cauvery Honey Farm'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="location-outline" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoLabel}>Jurisdiction / State</Text>
+              <Text style={styles.infoValue}>
+                {userProfile?.district ? `${userProfile.district}, ` : ''}{userProfile?.state || 'Karnataka'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="people-outline" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoLabel}>{t('beekeeperCategory')}</Text>
+              <Text style={styles.infoValue}>
+                {userProfile?.entityType === 'enterprise'
+                  ? 'Commercial Beekeeper'
+                  : userProfile?.entityType === 'fpo_shg'
+                  ? 'FPO / SHG Member'
+                  : 'Individual Farmer'}
               </Text>
             </View>
           </View>
@@ -162,7 +245,7 @@ export function ProfilePage() {
               <Ionicons name="finger-print-outline" size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Firebase UID</Text>
+              <Text style={styles.infoLabel}>Farmer UID</Text>
               <Text style={styles.uidText} numberOfLines={1} selectable>
                 {user?.uid}
               </Text>
@@ -170,12 +253,20 @@ export function ProfilePage() {
           </View>
         </AppCard>
 
-        {/* Preferences & Settings */}
-        <Text style={styles.sectionHeader}>Preferences</Text>
+        {/* Language Preferences (Only place authenticated users change language) */}
+        <Text style={styles.sectionHeader}>{t('languagePreference')}</Text>
         <AppCard elevation="card" style={styles.infoCard}>
+          <View style={styles.settingRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingTitle}>{t('language')}</Text>
+              <Text style={styles.settingSubtitle}>English / ಕನ್ನಡ / हिन्दी</Text>
+            </View>
+            <LanguageSelector compact={true} />
+          </View>
+
           <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.settingTitle}>Temperature Unit (°C)</Text>
+              <Text style={styles.settingTitle}>{t('temperatureUnit')}</Text>
               <Text style={styles.settingSubtitle}>
                 {tempUnitCelsius ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
               </Text>
@@ -192,23 +283,20 @@ export function ProfilePage() {
         {/* Sign Out Action */}
         <View style={styles.signOutSection}>
           <AppButton
-            title={isSigningOut ? 'Signing out...' : 'Sign Out'}
+            title={isSigningOut ? '...' : t('signOut')}
             variant="outline"
             size="md"
             iconName="log-out-outline"
             disabled={isSigningOut}
             loading={isSigningOut}
             onPress={handleSignOut}
-            style={styles.signOutButton}
-            textStyle={{ color: colors.status.critical.text }}
+            style={styles.signOutBtn}
           />
         </View>
 
-        {/* App Version Info */}
-        <View style={styles.footerInfo}>
-          <Text style={styles.footerVersion}>HoneyChain v{config.appVersion}</Text>
-          <Text style={styles.footerSub}>Smart Apiary Management & Honey Traceability</Text>
-        </View>
+        <Text style={styles.versionText}>
+          HoneyChain Version 1.0.0 (KVIC / NBHM Architecture Ready)
+        </Text>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -221,10 +309,7 @@ export function ProfilePage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Edit Beekeeper Profile</Text>
-                <Text style={styles.modalSubtitle}>Update your display name and apiary facility</Text>
-              </View>
+              <Text style={styles.modalTitle}>Edit Beekeeper Profile</Text>
               <TouchableOpacity
                 onPress={() => setEditModalVisible(false)}
                 style={styles.modalCloseButton}
@@ -233,62 +318,88 @@ export function ProfilePage() {
               </TouchableOpacity>
             </View>
 
-            {editError ? (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={16} color={colors.status.critical.text} />
-                <Text style={styles.errorBannerText}>{editError}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Beekeeper Name *</Text>
-              <View style={styles.inputFieldContainer}>
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color={colors.textMuted}
-                  style={styles.inputIcon}
-                />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('nameLabel')}</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g. Marcus Vance"
+                  value={formDisplayName}
+                  onChangeText={setFormDisplayName}
+                  placeholder={t('namePlaceholder')}
                   placeholderTextColor={colors.textMuted}
-                  value={editDisplayName}
-                  onChangeText={setEditDisplayName}
-                  editable={!isSavingProfile}
                 />
               </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Apiary Facility Name</Text>
-              <View style={styles.inputFieldContainer}>
-                <Ionicons
-                  name="home-outline"
-                  size={18}
-                  color={colors.textMuted}
-                  style={styles.inputIcon}
-                />
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('apiaryNameLabel')}</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g. Meadowbrook Apiaries"
+                  value={formApiaryName}
+                  onChangeText={setFormApiaryName}
+                  placeholder={t('apiaryNamePlaceholder')}
                   placeholderTextColor={colors.textMuted}
-                  value={editApiaryName}
-                  onChangeText={setEditApiaryName}
-                  editable={!isSavingProfile}
                 />
               </View>
-            </View>
 
-            <AppButton
-              title={isSavingProfile ? 'Saving...' : 'Save Profile'}
-              variant="primary"
-              size="lg"
-              loading={isSavingProfile}
-              disabled={isSavingProfile || !editDisplayName.trim()}
-              onPress={handleSaveProfile}
-              style={{ marginTop: spacing.md }}
-            />
+              <View style={styles.rowInputs}>
+                <View style={[styles.inputGroup, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={styles.inputLabel}>{t('stateLabel')}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={formState}
+                    onChangeText={setFormState}
+                    placeholder="Karnataka"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>{t('districtLabel')}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={formDistrict}
+                    onChangeText={setFormDistrict}
+                    placeholder="e.g. Mandya"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('beekeeperCategory')}</Text>
+                <View style={styles.entityOptionsRow}>
+                  {ENTITY_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.entityChip,
+                        formEntityType === opt.value && styles.entityChipActive,
+                      ]}
+                      onPress={() => setFormEntityType(opt.value)}
+                    >
+                      <Text
+                        style={[
+                          styles.entityChipText,
+                          formEntityType === opt.value && styles.entityChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <AppButton
+                title={isUpdating ? t('loading') : t('saveProfile')}
+                variant="primary"
+                size="lg"
+                loading={isUpdating}
+                disabled={isUpdating}
+                onPress={handleSaveProfile}
+                style={{ marginTop: spacing.md, marginBottom: spacing.xl }}
+              />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -301,45 +412,67 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   profileCard: {
-    padding: spacing.lg,
     marginBottom: spacing.lg,
+    padding: spacing.lg,
   },
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
     marginBottom: spacing.md,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+  },
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.surfaceSubtle,
   },
   avatarInitials: {
     fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
-    color: colors.textInverse,
+    color: colors.surface,
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs + 2,
+    gap: spacing.xs,
   },
   beekeeperName: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.md + 2,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
-    backgroundColor: colors.primarySoft,
     gap: 3,
   },
   verifiedText: {
@@ -348,82 +481,77 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   beekeeperRole: {
-    fontSize: typography.size.sm,
-    color: colors.accentDeep,
-    fontWeight: typography.weight.semibold,
-    marginTop: 2,
-  },
-  beekeeperEmail: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
+    textTransform: 'capitalize',
+    marginTop: 1,
+  },
+  beekeeperPhone: {
+    fontSize: typography.size.xs,
+    color: colors.textMuted,
     marginTop: 2,
   },
   editProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
     paddingVertical: spacing.sm,
+    backgroundColor: colors.primarySoft,
     borderRadius: borderRadius.md,
     gap: spacing.xs,
   },
   editProfileButtonText: {
     fontSize: typography.size.xs + 1,
-    color: colors.primary,
     fontWeight: typography.weight.semibold,
+    color: colors.primary,
   },
   sectionHeader: {
-    fontSize: typography.size.md,
+    fontSize: typography.size.sm + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
-    marginTop: spacing.xs,
+    marginBottom: spacing.xs + 2,
   },
   infoCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
     marginBottom: spacing.lg,
+    padding: spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
+    gap: spacing.md,
   },
   infoIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primarySoft,
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
   },
   infoLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
   },
   infoValue: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
     color: colors.textPrimary,
-    marginTop: 2,
+    marginTop: 1,
   },
   uidText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontFamily: typography.weight.medium,
-    marginTop: 2,
+    fontSize: typography.size.xs - 1,
+    color: colors.textMuted,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 1,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
   },
@@ -433,108 +561,95 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   settingSubtitle: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs - 1,
     color: colors.textSecondary,
     marginTop: 2,
   },
   signOutSection: {
     marginTop: spacing.sm,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
-  signOutButton: {
+  signOutBtn: {
+    width: '100%',
     borderColor: colors.status.critical.border,
   },
-  footerInfo: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  footerVersion: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.semibold,
-    color: colors.textMuted,
-  },
-  footerSub: {
+  versionText: {
     fontSize: 11,
     color: colors.textMuted,
-    marginTop: 2,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxxl,
+    padding: spacing.lg,
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
   modalTitle: {
-    fontSize: typography.size.xl,
+    fontSize: typography.size.md + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
-  modalSubtitle: {
-    fontSize: typography.size.xs + 1,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   modalCloseButton: {
     padding: spacing.xs,
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.full,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.status.critical.bg,
-    borderColor: colors.status.critical.border,
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    gap: spacing.xs,
-  },
-  errorBannerText: {
-    fontSize: typography.size.xs,
-    color: colors.status.critical.text,
-    flex: 1,
   },
   inputGroup: {
     marginBottom: spacing.md,
   },
   inputLabel: {
-    fontSize: 11,
+    fontSize: typography.size.xs + 1,
     fontWeight: typography.weight.semibold,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
-    textTransform: 'uppercase',
   },
-  inputFieldContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
+  textInput: {
+    height: 46,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    height: 48,
-  },
-  inputIcon: {
-    marginRight: spacing.sm,
-  },
-  textInput: {
-    flex: 1,
     fontSize: typography.size.sm,
     color: colors.textPrimary,
+    backgroundColor: colors.surfaceSubtle,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+  },
+  entityOptionsRow: {
+    gap: spacing.xs,
+  },
+  entityChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surfaceSubtle,
+  },
+  entityChipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  entityChipText: {
+    fontSize: typography.size.xs + 1,
+    color: colors.textSecondary,
+    fontWeight: typography.weight.medium,
+  },
+  entityChipTextActive: {
+    color: colors.primary,
+    fontWeight: typography.weight.bold,
   },
 });
 

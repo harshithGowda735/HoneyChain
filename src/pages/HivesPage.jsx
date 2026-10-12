@@ -21,13 +21,7 @@ import AppButton from '../components/common/AppButton';
 import { formatTemperature, formatHumidity, formatWeight, formatBattery } from '../utils/formatSensorValue';
 import { formatDate } from '../utils/formatDate';
 import { useAuth } from '../context/AuthContext';
-
-const STATUS_FILTERS = [
-  { key: 'all', label: 'All Hives' },
-  { key: 'healthy', label: 'Healthy' },
-  { key: 'attention', label: 'Attention' },
-  { key: 'critical', label: 'Critical' },
-];
+import { useLanguage } from '../context/LanguageContext';
 
 export function HivesPage({
   hives = [],
@@ -48,6 +42,14 @@ export function HivesPage({
   onRefresh,
 }) {
   const { isRealAuthConnected } = useAuth();
+  const { t } = useLanguage();
+
+  const statusFilters = [
+    { key: 'all', label: t('filterAllHives') },
+    { key: 'healthy', label: t('healthyStatus') },
+    { key: 'attention', label: t('attentionStatus') },
+    { key: 'critical', label: t('criticalStatus') },
+  ];
 
   // Modals
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -264,7 +266,7 @@ export function HivesPage({
           style={styles.filterScroll}
           contentContainerStyle={styles.filterContainer}
         >
-          {STATUS_FILTERS.map((filter) => {
+          {statusFilters.map((filter) => {
             const isActive = statusFilter === filter.key;
             const count =
               filter.key === 'all'

@@ -2,11 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import config from '../constants/config';
 import {
   auth,
-  signInWithEmail,
-  signUpWithEmail,
   signOutUser,
   onAuthStateChanged,
 } from '../services/firebase';
+import {
+  sendPhoneVerificationCode,
+  verifyPhoneOtpAndSignIn,
+} from '../services/phoneAuthService';
 import {
   createUserProfile,
   getUserProfile,
@@ -29,10 +31,10 @@ export function AuthProvider({ children }) {
         setUser(firebaseUser);
         if (firebaseUser) {
           try {
-            // Ensure a profile doc exists without overwriting on login
+            // Load or initialize user profile doc in Firestore
             const profile = await createUserProfile(firebaseUser.uid, {
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName,
+              phoneNumber: firebaseUser.phoneNumber || '',
+              displayName: firebaseUser.displayName || '',
             });
             setUserProfile(profile);
           } catch (profileErr) {
@@ -55,20 +57,27 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
-  const signIn = async (email, password) => {
+  /**
+   * Request OTP SMS for phone number
+   */
+  const sendOtp = async (phoneNumber, recaptchaToken = '') => {
     setAuthError(null);
-    return await signInWithEmail(email, password);
+    return await sendPhoneVerificationCode(phoneNumber, recaptchaToken);
   };
 
-  const signUp = async (email, password, extraData = {}) => {
+  /**
+   * Verify OTP and complete sign-in
+   */
+  const verifyOtp = async (sessionInfo, code, extraData = {}) => {
     setAuthError(null);
-    const userCredential = await signUpWithEmail(email, password);
+    const userCredential = await verifyPhoneOtpAndSignIn(sessionInfo, code);
     if (userCredential?.user?.uid) {
       try {
         const profile = await createUserProfile(userCredential.user.uid, {
-          email: userCredential.user.email,
-          displayName: extraData.displayName || userCredential.user.email?.split('@')[0] || 'Apiarist',
+          phoneNumber: userCredential.user.phoneNumber || extraData.phoneNumber || '',
+          displayName: extraData.displayName || 'Beekeeper',
           apiaryName: extraData.apiaryName || config.defaultApiaryName,
+          preferredLanguage: extraData.preferredLanguage || 'en',
           role: 'beekeeper',
         });
         setUserProfile(profile);
@@ -79,12 +88,18 @@ export function AuthProvider({ children }) {
     return userCredential;
   };
 
+  /**
+   * Sign out
+   */
   const signOut = async () => {
     setAuthError(null);
     setUserProfile(null);
     return await signOutUser();
   };
 
+  /**
+   * Update beekeeper profile
+   */
   const updateProfile = async (data) => {
     if (!user?.uid) throw new Error('Cannot update profile without active session.');
     const updated = await updateUserProfile(user.uid, data);
@@ -92,14 +107,18 @@ export function AuthProvider({ children }) {
     return updated;
   };
 
-  // Beekeeper display profile derived from real Firestore profile
+  // Derived Beekeeper display profile
   const currentUser = user
     ? {
         uid: user.uid,
-        name: userProfile?.displayName || user.displayName || user.email?.split('@')[0] || 'Apiarist',
+        name: userProfile?.displayName || user.displayName || 'Beekeeper',
+        phoneNumber: user.phoneNumber || userProfile?.phoneNumber || '',
         role: userProfile?.role || 'beekeeper',
-        email: user.email,
         apiaryName: userProfile?.apiaryName || config.defaultApiaryName,
+        photoUrl: userProfile?.photoUrl || user.photoURL || null,
+        state: userProfile?.state || 'Karnataka',
+        district: userProfile?.district || 'General',
+        entityType: userProfile?.entityType || 'farmer',
       }
     : null;
 
@@ -112,8 +131,8 @@ export function AuthProvider({ children }) {
         currentUser,
         isRealAuthConnected: Boolean(user),
         authError,
-        signIn,
-        signUp,
+        sendOtp,
+        verifyOtp,
         signOut,
         updateProfile,
       }}

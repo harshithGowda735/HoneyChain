@@ -8,11 +8,14 @@ import HomePage from '../pages/HomePage';
 import HivesPage from '../pages/HivesPage';
 import BatchesPage from '../pages/BatchesPage';
 import ProfilePage from '../pages/ProfilePage';
+import SchemesPage from '../pages/SchemesPage';
 import AuthPage from '../pages/AuthPage';
 import { useAuth } from '../context/AuthContext';
 import { useHiveData } from '../hooks/useHiveData';
 import { QRScannerModal } from '../components/batches/QRScannerModal';
 import { PublicVerificationModal } from '../components/batches/PublicVerificationModal';
+import { RecordHarvestModal } from '../components/batches/RecordHarvestModal';
+import { QRCodeModal } from '../components/batches/QRCodeModal';
 
 export function AppNavigator() {
   const insets = useSafeAreaInsets();
@@ -20,6 +23,10 @@ export function AppNavigator() {
   const [activeTab, setActiveTab] = useState('home');
   const [publicVerifyCode, setPublicVerifyCode] = useState(null);
   const [publicScannerVisible, setPublicScannerVisible] = useState(false);
+
+  // Harvest modal from Home screen
+  const [recordHarvestVisible, setRecordHarvestVisible] = useState(false);
+  const [createdBatchForQr, setCreatedBatchForQr] = useState(null);
 
   // Shared Hive, Batch, and Activity State
   const hiveData = useHiveData();
@@ -108,11 +115,11 @@ export function AppNavigator() {
         return (
           <HomePage
             stats={hiveData.stats}
-            activities={hiveData.activities}
             loading={hiveData.loading}
             error={hiveData.error}
             onRefresh={hiveData.refreshData}
             onNavigateToTab={handleTabChange}
+            onOpenRecordHarvest={() => setRecordHarvestVisible(true)}
           />
         );
       case 'hives':
@@ -154,17 +161,24 @@ export function AppNavigator() {
             onRefresh={hiveData.refreshData}
           />
         );
+      case 'schemes':
+        return (
+          <SchemesPage
+            onBack={() => setActiveTab('home')}
+            hivesCount={hiveData.stats.totalHives}
+          />
+        );
       case 'profile':
         return <ProfilePage />;
       default:
         return (
           <HomePage
             stats={hiveData.stats}
-            activities={hiveData.activities}
             loading={hiveData.loading}
             error={hiveData.error}
             onRefresh={hiveData.refreshData}
             onNavigateToTab={handleTabChange}
+            onOpenRecordHarvest={() => setRecordHarvestVisible(true)}
           />
         );
     }
@@ -174,11 +188,37 @@ export function AppNavigator() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.screenArea}>{renderActiveScreen()}</View>
       <BottomTabBar
-        activeTab={activeTab}
+        activeTab={activeTab === 'schemes' ? 'home' : activeTab}
         onTabPress={handleTabChange}
         bottomInset={insets.bottom}
       />
       {verificationModals}
+
+      {/* Global Record Harvest Modal from Home Action */}
+      <RecordHarvestModal
+        visible={recordHarvestVisible}
+        hives={hiveData.hives}
+        onClose={() => setRecordHarvestVisible(false)}
+        onSubmitHarvest={hiveData.addBatch}
+        onOpenAddHive={() => {
+          setRecordHarvestVisible(false);
+          setActiveTab('hives');
+        }}
+        onViewQrForBatch={(batch) => {
+          setCreatedBatchForQr(batch);
+        }}
+      />
+
+      {/* QR Code Modal for newly recorded batch */}
+      <QRCodeModal
+        visible={Boolean(createdBatchForQr)}
+        batch={createdBatchForQr}
+        onClose={() => setCreatedBatchForQr(null)}
+        onPreviewVerification={(code) => {
+          setCreatedBatchForQr(null);
+          setPublicVerifyCode(code);
+        }}
+      />
     </View>
   );
 }
@@ -194,8 +234,8 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     backgroundColor: colors.background,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 12,
   },
   loadingText: {

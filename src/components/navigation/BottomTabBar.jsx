@@ -3,35 +3,38 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { spacing, typography, shadows } from '../../constants/layout';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const TABS = [
   {
     key: 'home',
-    label: 'Home',
+    labelKey: 'tabHome',
     iconActive: 'home',
     iconInactive: 'home-outline',
   },
   {
     key: 'hives',
-    label: 'My Hives',
+    labelKey: 'tabHives',
     iconActive: 'grid',
     iconInactive: 'grid-outline',
   },
   {
     key: 'batches',
-    label: 'Honey Batches',
+    labelKey: 'tabBatches',
     iconActive: 'cube',
     iconInactive: 'cube-outline',
   },
   {
     key: 'profile',
-    label: 'Profile',
+    labelKey: 'tabProfile',
     iconActive: 'person',
     iconInactive: 'person-outline',
   },
 ];
 
 export function BottomTabBar({ activeTab = 'home', onTabPress, bottomInset = 0 }) {
+  const { t } = useLanguage();
+
   return (
     <View style={[styles.container, { paddingBottom: Math.max(bottomInset, 12) }]}>
       <View style={styles.tabBar}>
@@ -60,7 +63,7 @@ export function BottomTabBar({ activeTab = 'home', onTabPress, bottomInset = 0 }
                   },
                 ]}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </Text>
             </TouchableOpacity>
           );

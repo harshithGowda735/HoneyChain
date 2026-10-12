@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,56 +9,104 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../constants/layout';
 import AppButton from '../components/common/AppButton';
+import LanguageSelector from '../components/common/LanguageSelector';
+import FirebaseRecaptchaModal from '../components/auth/FirebaseRecaptchaModal';
 import { useAuth } from '../context/AuthContext';
-import config from '../constants/config';
+import { useLanguage } from '../context/LanguageContext';
 
 export function AuthPage({ onOpenPublicScanner }) {
-  const { signIn, signUp } = useAuth();
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { sendOtp, verifyOtp } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
+
+  // Auth Step: 'phone' -> 'otp'
+  const [step, setStep] = useState('phone');
+
+  // Input states
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [apiaryName, setApiaryName] = useState('');
+
+  // OTP flow state
+  const [sessionInfo, setSessionInfo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
-  const getFriendlyAuthError = (error) => {
-    if (!error) return '';
-    const code = error.code || '';
-    switch (code) {
-      case 'auth/invalid-email':
-        return 'Please enter a valid email address.';
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential':
-        return 'Incorrect email or password. Please try again.';
-      case 'auth/email-already-in-use':
-        return 'This email is already registered. Please sign in instead.';
-      case 'auth/weak-password':
-        return 'Password must be at least 6 characters.';
-      case 'auth/network-request-failed':
-        return 'Network connection issue. Please check your internet connection.';
-      case 'auth/too-many-requests':
-        return 'Too many failed attempts. Please wait a moment and try again.';
-      default:
-        return error.message || 'An authentication error occurred. Please try again.';
+  // Recaptcha challenge modal
+  const [recaptchaVisible, setRecaptchaVisible] = useState(false);
+  const [pendingPhone, setPendingPhone] = useState('');
+
+  // Resend cooldown timer
+  useEffect(() => {
+    let timer;
+    if (cooldownSeconds > 0) {
+      timer = setTimeout(() => {
+        setCooldownSeconds((prev) => prev - 1);
+      }, 1000);
     }
+    return () => clearTimeout(timer);
+  }, [cooldownSeconds]);
+
+  const cleanPhoneDigits = (text) => {
+    return text.replace(/[^0-9]/g, '').slice(0, 10);
   };
 
-  const handleSubmit = async () => {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setErrorMessage('Please enter both email and password.');
+  const handleSendOtp = async (recaptchaToken = '') => {
+    const rawDigits = cleanPhoneDigits(phoneNumber);
+    if (rawDigits.length !== 10) {
+      setErrorMessage(t('invalidPhone'));
       return;
     }
 
-    if (authMode === 'signup' && password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+    const fullPhone = `+91${rawDigits}`;
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const result = await sendOtp(fullPhone, recaptchaToken);
+      setSessionInfo(result.sessionInfo);
+      setPendingPhone(fullPhone);
+      setStep('otp');
+      setCooldownSeconds(60);
+      setOtpCode('');
+    } catch (err) {
+      const code = err?.code || '';
+      if (code.includes('captcha') || code.includes('TOO_MANY_ATTEMPTS')) {
+        // Trigger webview recaptcha challenge modal
+        setRecaptchaVisible(true);
+      } else if (code.includes('invalid-phone') || code.includes('INVALID_PHONE_NUMBER')) {
+        setErrorMessage(t('invalidPhone'));
+      } else if (code.includes('quota') || code.includes('QUOTA_EXCEEDED')) {
+        setErrorMessage('SMS limit exceeded. Please try again later or use official test credentials.');
+      } else {
+        setErrorMessage(err?.message || 'Failed to send OTP. Please check your network and number.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRecaptchaSuccess = async (token) => {
+    setRecaptchaVisible(false);
+    await handleSendOtp(token);
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setErrorMessage(t('invalidOtp'));
+      return;
+    }
+
+    if (!sessionInfo) {
+      setErrorMessage('Verification session expired. Please request a new OTP.');
+      setStep('phone');
       return;
     }
 
@@ -66,16 +114,22 @@ export function AuthPage({ onOpenPublicScanner }) {
     setErrorMessage('');
 
     try {
-      if (authMode === 'signin') {
-        await signIn(trimmedEmail, password);
-      } else {
-        await signUp(trimmedEmail, password, {
-          displayName: displayName.trim() || undefined,
-          apiaryName: apiaryName.trim() || undefined,
-        });
-      }
+      await verifyOtp(sessionInfo, otpCode.trim(), {
+        phoneNumber: pendingPhone,
+        displayName: displayName.trim() || undefined,
+        apiaryName: apiaryName.trim() || undefined,
+        preferredLanguage: language,
+      });
+      // Auth success is captured by onAuthStateChanged in AuthContext
     } catch (err) {
-      setErrorMessage(getFriendlyAuthError(err));
+      const code = err?.code || '';
+      if (code.includes('invalid') || code.includes('INVALID_CODE')) {
+        setErrorMessage(t('invalidOtp'));
+      } else if (code.includes('expired') || code.includes('SESSION_EXPIRED')) {
+        setErrorMessage('OTP expired. Please request a new code.');
+      } else {
+        setErrorMessage(err?.message || 'Failed to verify OTP. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -91,55 +145,35 @@ export function AuthPage({ onOpenPublicScanner }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* App Logo & Header */}
-        <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
-          </View>
-          <Text style={styles.appName}>{config.appName}</Text>
-          <Text style={styles.tagline}>{config.tagline}</Text>
+        {/* Top Government Language Selection Header (Pre-Auth) */}
+        <View style={styles.topLanguageSection}>
+          <Text style={styles.chooseLanguageTitle}>{t('selectLanguage')}</Text>
+          <LanguageSelector compact={false} />
         </View>
 
-        {/* Auth Card */}
-        <View style={styles.card}>
-          {/* Mode Tabs */}
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                setAuthMode('signin');
-                setErrorMessage('');
-              }}
-              style={[styles.tab, authMode === 'signin' && styles.tabActive]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  authMode === 'signin' && styles.tabTextActive,
-                ]}
-              >
-                Sign In
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                setAuthMode('signup');
-                setErrorMessage('');
-              }}
-              style={[styles.tab, authMode === 'signup' && styles.tabActive]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  authMode === 'signup' && styles.tabTextActive,
-                ]}
-              >
-                Create Account
-              </Text>
-            </TouchableOpacity>
+        {/* Government Agri Identity Header */}
+        <View style={styles.header}>
+          <View style={styles.emblemBadge}>
+            <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           </View>
+          <Text style={styles.appName}>{t('appName')}</Text>
+          <Text style={styles.tagline}>{t('tagline')}</Text>
+          <View style={styles.govTag}>
+            <Ionicons name="leaf-outline" size={13} color={colors.primary} />
+            <Text style={styles.govTagText}>{t('govInitiativeSub')}</Text>
+          </View>
+        </View>
+
+        {/* Main Phone Authentication Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {step === 'phone' ? t('newBeekeeperTitle') : t('enterOtp')}
+          </Text>
+          <Text style={styles.cardSubtitle}>
+            {step === 'phone'
+              ? t('newBeekeeperSub')
+              : `${t('otpSentTo')} +91 ${cleanPhoneDigits(phoneNumber)}`}
+          </Text>
 
           {/* Error Banner */}
           {errorMessage ? (
@@ -153,21 +187,16 @@ export function AuthPage({ onOpenPublicScanner }) {
             </View>
           ) : null}
 
-          {/* Input Fields */}
-          {authMode === 'signup' && (
+          {step === 'phone' ? (
             <>
+              {/* Optional Beekeeper Profile Details for New Accounts */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Beekeeper Name</Text>
+                <Text style={styles.label}>{t('nameLabel')}</Text>
                 <View style={styles.inputContainer}>
-                  <Ionicons
-                    name="person-outline"
-                    size={18}
-                    color={colors.textMuted}
-                    style={styles.icon}
-                  />
+                  <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="e.g. John Doe"
+                    placeholder={t('namePlaceholder')}
                     placeholderTextColor={colors.textMuted}
                     value={displayName}
                     onChangeText={setDisplayName}
@@ -177,17 +206,12 @@ export function AuthPage({ onOpenPublicScanner }) {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Apiary Facility Name</Text>
+                <Text style={styles.label}>{t('apiaryNameLabel')}</Text>
                 <View style={styles.inputContainer}>
-                  <Ionicons
-                    name="home-outline"
-                    size={18}
-                    color={colors.textMuted}
-                    style={styles.icon}
-                  />
+                  <Ionicons name="home-outline" size={18} color={colors.textMuted} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="e.g. Clover Valley Yard"
+                    placeholder={t('apiaryNamePlaceholder')}
                     placeholderTextColor={colors.textMuted}
                     value={apiaryName}
                     onChangeText={setApiaryName}
@@ -195,107 +219,149 @@ export function AuthPage({ onOpenPublicScanner }) {
                   />
                 </View>
               </View>
+
+              {/* Mobile Number Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>{t('mobileNumber')} *</Text>
+                <View style={styles.phoneInputRow}>
+                  <View style={styles.countryCodeBox}>
+                    <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
+                  </View>
+                  <View style={[styles.inputContainer, { flex: 1 }]}>
+                    <TextInput
+                      style={[styles.input, styles.phoneInputText]}
+                      placeholder={t('mobileNumberPlaceholder')}
+                      placeholderTextColor={colors.textMuted}
+                      value={phoneNumber}
+                      onChangeText={(val) => setPhoneNumber(cleanPhoneDigits(val))}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <AppButton
+                title={isSubmitting ? t('sendingOtp') : t('sendOtp')}
+                iconName="arrow-forward-outline"
+                variant="primary"
+                size="lg"
+                loading={isSubmitting}
+                disabled={isSubmitting || cleanPhoneDigits(phoneNumber).length !== 10}
+                onPress={() => handleSendOtp()}
+                style={styles.submitBtn}
+              />
+
+              <Text style={styles.disclaimerText}>
+                {t('phoneAuthDisclaimer')}
+              </Text>
+            </>
+          ) : (
+            <>
+              {/* 6-Digit OTP Entry */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>{t('enterOtp')} *</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="key-outline" size={18} color={colors.textMuted} style={styles.icon} />
+                  <TextInput
+                    style={[styles.input, styles.otpInputText]}
+                    placeholder={t('otpPlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    value={otpCode}
+                    onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 6))}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    autoFocus
+                    editable={!isSubmitting}
+                  />
+                </View>
+              </View>
+
+              <AppButton
+                title={isSubmitting ? t('verifyingOtp') : t('verifyAndLogin')}
+                iconName="checkmark-circle-outline"
+                variant="primary"
+                size="lg"
+                loading={isSubmitting}
+                disabled={isSubmitting || otpCode.length !== 6}
+                onPress={handleVerifyOtp}
+                style={styles.submitBtn}
+              />
+
+              {/* OTP Resend & Change Number Actions */}
+              <View style={styles.otpActionsRow}>
+                {cooldownSeconds > 0 ? (
+                  <Text style={styles.cooldownText}>
+                    {t('resendCooldown').replace('{s}', String(cooldownSeconds))}
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => handleSendOtp()}
+                    disabled={isSubmitting}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.resendLink}>{t('resendOtp')}</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setStep('phone');
+                    setOtpCode('');
+                    setErrorMessage('');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.changeNumberLink}>{t('changeNumber')}</Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={18}
-                color={colors.textMuted}
-                style={styles.icon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="beekeeper@apiary.com"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoCorrect={false}
-                editable={!isSubmitting}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={18}
-                color={colors.textMuted}
-                style={styles.icon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  authMode === 'signup'
-                    ? 'Minimum 6 characters'
-                    : 'Your password'
-                }
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                editable={!isSubmitting}
-              />
-            </View>
-          </View>
-
-          {/* Submit Button */}
-          <AppButton
-            title={
-              isSubmitting
-                ? authMode === 'signin'
-                  ? 'Signing In...'
-                  : 'Creating Account...'
-                : authMode === 'signin'
-                ? 'Sign In'
-                : 'Create Account'
-            }
-            variant="primary"
-            size="lg"
-            loading={isSubmitting}
-            disabled={isSubmitting || !email || !password}
-            onPress={handleSubmit}
-            style={styles.submitBtn}
-          />
         </View>
 
-        {/* Public Consumer Verification Shortcut */}
+        {/* Public Consumer Honey Verification Box */}
         {onOpenPublicScanner && (
           <View style={styles.consumerVerifyBox}>
-            <View style={styles.consumerVerifyHeader}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
-              <Text style={styles.consumerVerifyTitle}>Consumer Honey Traceability</Text>
+            <View style={styles.consumerHeaderRow}>
+              <View style={styles.consumerIconCircle}>
+                <Ionicons name="qr-code-outline" size={20} color={colors.accentDeep} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.consumerVerifyTitle}>{t('publicConsumerSection')}</Text>
+                <Text style={styles.consumerVerifyDesc}>{t('verifyJarDesc')}</Text>
+              </View>
             </View>
-            <Text style={styles.consumerVerifyText}>
-              Scan a honey jar label or enter a batch code to verify floral variety, extraction date, and harvest authenticity without an account.
-            </Text>
             <AppButton
-              title="Verify Honey Jar (Scan / Enter Code)"
-              iconName="qr-code-outline"
+              title={t('verifyJarPublic')}
+              iconName="camera-outline"
               variant="outline"
-              size="sm"
+              size="md"
               onPress={onOpenPublicScanner}
-              style={styles.consumerVerifyBtn}
+              style={styles.consumerBtn}
             />
           </View>
         )}
 
-        {/* Security Footer Note */}
+        {/* Official Security Footer */}
         <View style={styles.footer}>
-          <Ionicons name="lock-closed" size={14} color={colors.textMuted} />
+          <Ionicons name="shield-checkmark" size={14} color={colors.textMuted} />
           <Text style={styles.footerText}>
-            Secured with Firebase Authentication & Cloud Firestore
+            Secured by Government-Grade Firebase Telemetry & Cloud Firestore
           </Text>
         </View>
       </ScrollView>
+
+      {/* Embedded Recaptcha Modal */}
+      <FirebaseRecaptchaModal
+        visible={recaptchaVisible}
+        onClose={() => setRecaptchaVisible(false)}
+        onSuccess={handleRecaptchaSuccess}
+        onError={(err) => {
+          setRecaptchaVisible(false);
+          setErrorMessage(err?.message || 'Security check failed. Please try again.');
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -311,11 +377,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
   },
+  topLanguageSection: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  chooseLanguageTitle: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
-  logoBadge: {
+  emblemBadge: {
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -323,54 +406,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primaryMuted,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   appName: {
     fontSize: typography.size.xxl,
     fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
+    color: colors.primary,
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'center',
+  },
+  govTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSubtle,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  govTagText: {
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    padding: spacing.lg,
-    ...shadows.elevated,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
-    padding: 3,
+    ...shadows.card,
     marginBottom: spacing.lg,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
-    borderRadius: borderRadius.sm,
-  },
-  tabActive: {
-    backgroundColor: colors.surface,
-    ...shadows.card,
-  },
-  tabText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    fontWeight: typography.weight.medium,
-  },
-  tabTextActive: {
-    color: colors.primary,
+  cardTitle: {
+    fontSize: typography.size.lg,
     fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+  },
+  cardSubtitle: {
+    fontSize: typography.size.xs + 1,
+    color: colors.textSecondary,
+    marginTop: 2,
+    marginBottom: spacing.md,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -379,85 +463,151 @@ const styles = StyleSheet.create({
     borderColor: colors.status.critical.border,
     borderWidth: 1,
     borderRadius: borderRadius.md,
-    padding: spacing.sm + 2,
+    padding: spacing.sm,
     marginBottom: spacing.md,
-    gap: spacing.xs + 2,
+    gap: spacing.xs,
   },
   errorText: {
-    flex: 1,
     fontSize: typography.size.xs,
     color: colors.status.critical.text,
+    flex: 1,
   },
   inputGroup: {
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs + 1,
     fontWeight: typography.weight.semibold,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  inputContainer: {
+  phoneInputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  countryCodeBox: {
     backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countryCodeText: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+  },
+  phoneInputText: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.bold,
+    letterSpacing: 1.5,
+  },
+  otpInputText: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    textAlign: 'center',
+    letterSpacing: 6,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
   },
   icon: {
     marginRight: spacing.sm,
   },
   input: {
     flex: 1,
-    fontSize: typography.size.md,
+    height: 48,
+    fontSize: typography.size.sm + 1,
     color: colors.textPrimary,
   },
   submitBtn: {
-    marginTop: spacing.sm,
+    width: '100%',
+    marginTop: spacing.xs,
+  },
+  disclaimerText: {
+    fontSize: typography.size.xs - 1,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    lineHeight: 16,
+  },
+  otpActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  cooldownText: {
+    fontSize: typography.size.xs,
+    color: colors.textMuted,
+  },
+  resendLink: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.bold,
+    color: colors.primary,
+  },
+  changeNumberLink: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.accentDeep,
   },
   consumerVerifyBox: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
   },
-  consumerVerifyHeader: {
+  consumerHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  consumerIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    justifyContent: 'center',
   },
   consumerVerifyTitle: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textPrimary,
   },
-  consumerVerifyText: {
+  consumerVerifyDesc: {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: spacing.md,
+    marginTop: 2,
+    lineHeight: 16,
   },
-  consumerVerifyBtn: {
-    alignSelf: 'stretch',
+  consumerBtn: {
+    width: '100%',
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.xl,
     gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   footerText: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs - 1,
     color: colors.textMuted,
+    textAlign: 'center',
   },
 });
 

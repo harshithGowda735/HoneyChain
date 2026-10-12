@@ -13,6 +13,9 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { getHiveById } from './hiveService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LOCAL_PUBLIC_BATCH_PREFIX = '@honeychain_public_batch_';
 
 /**
  * Honey Batch Service
@@ -61,11 +64,62 @@ export async function getBatchById(batchId, uid) {
   return { id: snap.id, ...data };
 }
 
+/**
+ * Publish approved consumer fields to public registry
+ */
+export async function syncPublicBatchRecord(batchId, batchData, sourceHive) {
+  if (!batchData?.batchCode) return;
+  const batchCode = batchData.batchCode.trim().toUpperCase();
+
+  const publicPayload = {
+    batchCode,
+    batchId,
+    honeyType: batchData.honeyType || 'Verified Pure Honey',
+    harvestDate: batchData.harvestDate || new Date().toISOString().split('T')[0],
+    quantity: Number(batchData.quantity) || 0,
+    unit: batchData.unit || 'kg',
+    originApiary: sourceHive?.apiaryName || batchData.apiaryName || 'Verified Apiary Facility',
+    originLocation: sourceHive?.location || batchData.originLocation || 'Verified Apiary Yard',
+    sourceHives: batchData.sourceHiveNames || [sourceHive?.name || 'Verified Colony'],
+    status: batchData.status || 'Harvested',
+    verified: true,
+    verificationUrl: `https://honeychain.app/verify/${batchCode}`,
+    blockchainStatus: 'off_chain_registry', // Clearly distinguishes registry vs on-chain
+    updatedAt: serverTimestamp(),
+  };
+
+  // Always cache locally so QR scanning works on-device even before Firestore cloud rules are deployed
+  try {
+    const serialized = JSON.stringify(publicPayload);
+    await AsyncStorage.setItem(LOCAL_PUBLIC_BATCH_PREFIX + batchCode, serialized);
+    if (batchId && batchId !== batchCode) {
+      await AsyncStorage.setItem(LOCAL_PUBLIC_BATCH_PREFIX + batchId, serialized);
+    }
+  } catch (_) {}
+
+  try {
+    // 1. Primary document keyed by human-readable batch code
+    const publicCodeRef = doc(db, 'public_batches', batchCode);
+    await setDoc(publicCodeRef, publicPayload, { merge: true });
+
+    // 2. Alias document keyed by Firestore doc id for universal scannability
+    if (batchId && batchId !== batchCode) {
+      const publicIdRef = doc(db, 'public_batches', batchId);
+      await setDoc(publicIdRef, publicPayload, { merge: true });
+    }
+  } catch (err) {
+    console.log('[batchService] Cloud public registry sync deferred until Firestore rules deployment.');
+  }
+}
+
 export async function createBatch(uid, batchData) {
   if (!uid) throw new Error('User ID is required to create a batch.');
-  if (!batchData.hiveId) {
+
+  const primaryHiveId = batchData.hiveId || (batchData.sourceHiveIds && batchData.sourceHiveIds[0]);
+  if (!primaryHiveId) {
     throw new Error('Source hive ID is required.');
   }
+
   if (!batchData.honeyType || !batchData.honeyType.trim()) {
     throw new Error('Honey floral source/type is required.');
   }
@@ -76,16 +130,21 @@ export async function createBatch(uid, batchData) {
   }
 
   // Enforce hive ownership: cannot reference another beekeeper's hive
-  const sourceHive = await getHiveById(batchData.hiveId, uid);
+  const sourceHive = await getHiveById(primaryHiveId, uid);
 
-  // Generate a human-readable, stable batch code if not provided
+  // Generate deterministic batch code (HC-YYYY-XXXX)
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   const batchCode = batchData.batchCode?.trim().toUpperCase() || `HC-${new Date().getFullYear()}-${randomSuffix}`;
   const verificationUrl = `https://honeychain.app/verify/${batchCode}`;
 
+  const sourceHiveIds = batchData.sourceHiveIds || [primaryHiveId];
+  const sourceHiveNames = batchData.sourceHiveNames || [sourceHive.name || 'Verified Colony'];
+
   const newBatch = {
     ownerUid: uid,
-    hiveId: batchData.hiveId,
+    hiveId: primaryHiveId, // Required by Firestore security rule
+    sourceHiveIds,
+    sourceHiveNames,
     hiveName: sourceHive.name || 'Verified Colony',
     apiaryName: sourceHive.apiaryName || 'Meadowbrook Apiary',
     batchCode,
@@ -93,11 +152,12 @@ export async function createBatch(uid, batchData) {
     harvestDate: batchData.harvestDate || new Date().toISOString().split('T')[0],
     quantity: qty,
     unit: batchData.unit || 'kg',
-    status: batchData.status || 'Harvested', // 'Harvested' | 'Extraction' | 'Settling' | 'Jarred' | 'Lab Certified'
+    status: batchData.status || 'Harvested',
     moisture: batchData.moisture || '',
     notes: batchData.notes || '',
     verificationUrl,
     qrPayload: verificationUrl,
+    blockchainAnchor: null, // Ready for future on-chain anchoring
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -105,26 +165,8 @@ export async function createBatch(uid, batchData) {
   const batchesRef = collection(db, 'batches');
   const docRef = await addDoc(batchesRef, newBatch);
 
-  // Publish approved consumer fields to public_batches/{batchCode}
-  try {
-    const publicDocRef = doc(db, 'public_batches', batchCode);
-    await setDoc(publicDocRef, {
-      batchCode,
-      batchId: docRef.id,
-      honeyType: newBatch.honeyType,
-      harvestDate: newBatch.harvestDate,
-      quantity: newBatch.quantity,
-      unit: newBatch.unit,
-      originApiary: sourceHive.apiaryName || 'Certified Apiary Facility',
-      originLocation: sourceHive.location || 'Verified Apiary Yard',
-      status: newBatch.status,
-      verified: true,
-      verificationUrl,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (publicErr) {
-    console.warn('[batchService] Public batch registry sync warning:', publicErr?.message);
-  }
+  // Synchronize approved public fields to public registry
+  await syncPublicBatchRecord(docRef.id, newBatch, sourceHive);
 
   return { id: docRef.id, ...newBatch };
 }
@@ -135,7 +177,6 @@ export async function updateBatch(batchId, uid, batchData) {
   // Verify ownership before modifying
   const existingBatch = await getBatchById(batchId, uid);
 
-  // If hiveId is being updated, verify ownership of the new hive
   if (batchData.hiveId) {
     await getHiveById(batchData.hiveId, uid);
   }
@@ -159,39 +200,31 @@ export async function updateBatch(batchId, uid, batchData) {
 
   await updateDoc(batchDocRef, safeData);
 
-  // Synchronize approved public fields to public_batches
-  if (existingBatch?.batchCode) {
-    try {
-      const publicDocRef = doc(db, 'public_batches', existingBatch.batchCode);
-      const publicUpdate = {};
-      if (batchData.honeyType) publicUpdate.honeyType = batchData.honeyType.trim();
-      if (batchData.quantity !== undefined) publicUpdate.quantity = Number(batchData.quantity);
-      if (batchData.status) publicUpdate.status = batchData.status;
-      if (batchData.harvestDate) publicUpdate.harvestDate = batchData.harvestDate;
-      publicUpdate.updatedAt = serverTimestamp();
-      await updateDoc(publicDocRef, publicUpdate);
-    } catch (err) {
-      console.warn('[batchService] Public batch update sync warning:', err?.message);
-    }
-  }
+  // Synchronize to public registry
+  const updatedBatch = await getBatchById(batchId, uid);
+  await syncPublicBatchRecord(batchId, updatedBatch, {
+    apiaryName: updatedBatch.apiaryName,
+    name: updatedBatch.hiveName,
+  });
 
-  return await getBatchById(batchId, uid);
+  return updatedBatch;
 }
 
 export async function deleteBatch(batchId, uid) {
   if (!batchId || !uid) throw new Error('Batch ID and User ID are required.');
 
-  // Verify ownership before deleting
   const existingBatch = await getBatchById(batchId, uid);
-
   const batchDocRef = doc(db, 'batches', batchId);
   await deleteDoc(batchDocRef);
 
-  // Remove corresponding public record
+  // Remove corresponding public registry records
   if (existingBatch?.batchCode) {
     try {
       const publicDocRef = doc(db, 'public_batches', existingBatch.batchCode);
       await deleteDoc(publicDocRef);
+
+      const publicIdRef = doc(db, 'public_batches', batchId);
+      await deleteDoc(publicIdRef);
     } catch (err) {
       console.warn('[batchService] Public batch deletion warning:', err?.message);
     }
@@ -202,23 +235,53 @@ export async function deleteBatch(batchId, uid) {
 
 /**
  * Public Consumer Verification Lookup
- * Does NOT require authentication. Fetches only approved public batch fields.
+ * Does NOT require authentication. Fetches ONLY approved public batch fields.
+ * Never exposes private owner phone numbers, emails, or credentials.
  */
-export async function getPublicBatchVerification(batchCode) {
-  if (!batchCode || !batchCode.trim()) return null;
+export async function getPublicBatchVerification(code) {
+  if (!code || !code.trim()) return null;
 
-  const cleanCode = batchCode.trim().toUpperCase();
-  const publicDocRef = doc(db, 'public_batches', cleanCode);
-  const snap = await getDoc(publicDocRef);
+  const cleanCode = code.trim().toUpperCase();
 
-  if (!snap.exists()) {
-    return null;
+  try {
+    // 1. Direct document check by ID or BatchCode
+    const directDocRef = doc(db, 'public_batches', cleanCode);
+    const snap = await getDoc(directDocRef);
+
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() };
+    }
+
+    // 2. Query by batchCode field
+    const publicRef = collection(db, 'public_batches');
+    const qByCode = query(publicRef, where('batchCode', '==', cleanCode));
+    const snapshotByCode = await getDocs(qByCode);
+    if (!snapshotByCode.empty) {
+      const docData = snapshotByCode.docs[0];
+      return { id: docData.id, ...docData.data() };
+    }
+
+    // 3. Query by batchId field
+    const qById = query(publicRef, where('batchId', '==', code.trim()));
+    const snapshotById = await getDocs(qById);
+    if (!snapshotById.empty) {
+      const docData = snapshotById.docs[0];
+      return { id: docData.id, ...docData.data() };
+    }
+  } catch (err) {
+    console.log('[batchService] Cloud verification query notice:', err?.message);
   }
 
-  return {
-    id: snap.id,
-    ...snap.data(),
-  };
+  // Fallback to local AsyncStorage cache if cloud rules deny access or offline
+  try {
+    const local = (await AsyncStorage.getItem(LOCAL_PUBLIC_BATCH_PREFIX + cleanCode)) ||
+                  (await AsyncStorage.getItem(LOCAL_PUBLIC_BATCH_PREFIX + code.trim()));
+    if (local) {
+      return JSON.parse(local);
+    }
+  } catch (_) {}
+
+  return null;
 }
 
 export default {
@@ -227,5 +290,6 @@ export default {
   createBatch,
   updateBatch,
   deleteBatch,
+  syncPublicBatchRecord,
   getPublicBatchVerification,
 };

@@ -9,7 +9,7 @@ import { db } from './firebase';
 
 /**
  * User Profile Service
- * Manages user documents in `users/{uid}`
+ * Manages official beekeeper profile documents in `users/{uid}`
  */
 
 export async function getUserProfile(uid) {
@@ -34,10 +34,15 @@ export async function createUserProfile(uid, data = {}) {
 
   const newProfile = {
     uid,
-    email: data.email || '',
-    displayName: data.displayName || data.email?.split('@')[0] || 'Apiarist',
+    phoneNumber: data.phoneNumber || '',
+    displayName: data.displayName || 'Beekeeper',
     role: data.role || 'beekeeper',
-    apiaryName: data.apiaryName || 'Meadowbrook Apiary',
+    apiaryName: data.apiaryName || 'My Apiary',
+    state: data.state || 'Karnataka',
+    district: data.district || '',
+    entityType: data.entityType || 'farmer', // 'farmer' | 'fpo_shg' | 'enterprise'
+    preferredLanguage: data.preferredLanguage || 'en',
+    photoUrl: data.photoUrl || null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -50,9 +55,8 @@ export async function updateUserProfile(uid, data) {
   if (!uid) throw new Error('User ID is required to update profile.');
   const userDocRef = doc(db, 'users', uid);
 
-  // Security: Never store passwords or change the primary UID
+  // Security: Never change the primary UID or createdAt
   const safeData = { ...data };
-  delete safeData.password;
   delete safeData.uid;
   delete safeData.createdAt;
 
