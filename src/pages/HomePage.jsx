@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
@@ -56,19 +57,39 @@ export function HomePage({
     >
       {/* 1. Official Government Header & Apiary Identity */}
       <View style={styles.topHeader}>
-        <View style={styles.apiaryBadge}>
-          <Ionicons name="leaf" size={12} color={colors.primary} />
-          <Text style={styles.apiaryBadgeText} numberOfLines={1}>
-            {apiaryName}
-          </Text>
-        </View>
+        <View style={styles.headerTopRow}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.apiaryBadge}>
+              <Ionicons name="leaf" size={12} color={colors.primary} />
+              <Text style={styles.apiaryBadgeText} numberOfLines={1}>
+                {apiaryName} • {currentUser?.district || currentUser?.state || 'Karnataka'}
+              </Text>
+            </View>
+            <Text style={styles.greetingTitle}>
+              {t('welcome')}, {beekeeperName}
+            </Text>
+          </View>
 
-        <Text style={styles.greetingTitle}>
-          {t('welcome')}, {beekeeperName}
-        </Text>
-        <Text style={styles.greetingSubtitle}>
-          {t('apiaryOverview')}
-        </Text>
+          <TouchableOpacity
+            style={styles.profileAvatarBtn}
+            activeOpacity={0.8}
+            onPress={() => onNavigateToTab && onNavigateToTab('profile')}
+            accessibilityLabel="View Profile"
+          >
+            {currentUser?.photoUrl ? (
+              <Image
+                source={{ uri: currentUser.photoUrl }}
+                style={styles.profileAvatarImg}
+              />
+            ) : (
+              <View style={styles.profileAvatarPlaceholder}>
+                <Text style={styles.profileAvatarInitials}>
+                  {(beekeeperName || 'BK').slice(0, 2).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Network / Firestore Error Alert */}
@@ -95,7 +116,7 @@ export function HomePage({
             iconName="add-circle-outline"
             variant="primary"
             size="md"
-            onPress={() => onNavigateToTab && onNavigateToTab('hives')}
+            onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
             style={styles.onboardingBtn}
           />
         </View>
@@ -106,7 +127,7 @@ export function HomePage({
         <AppCard
           elevation="card"
           style={styles.statCard}
-          onPress={() => onNavigateToTab && onNavigateToTab('hives')}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
         >
           <View style={styles.statIconBox}>
             <Ionicons name="grid" size={20} color={colors.primary} />
@@ -121,7 +142,7 @@ export function HomePage({
         <AppCard
           elevation="card"
           style={styles.statCard}
-          onPress={() => onNavigateToTab && onNavigateToTab('batches')}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
         >
           <View style={[styles.statIconBox, { backgroundColor: colors.accentSoft }]}>
             <Ionicons name="cube" size={20} color={colors.accentDeep} />
@@ -136,7 +157,7 @@ export function HomePage({
         </AppCard>
       </View>
 
-      {/* 4. Prominent Government Action: Record Harvest */}
+      {/* 4. Prominent Action: Record Harvest */}
       <View style={styles.primaryActionSection}>
         <TouchableOpacity
           style={styles.recordHarvestBigBtn}
@@ -145,7 +166,7 @@ export function HomePage({
             if (onOpenRecordHarvest) {
               onOpenRecordHarvest();
             } else if (onNavigateToTab) {
-              onNavigateToTab('batches');
+              onNavigateToTab('apiary');
             }
           }}
         >
@@ -155,14 +176,14 @@ export function HomePage({
           <View style={{ flex: 1 }}>
             <Text style={styles.recordHarvestBtnTitle}>{t('recordHarvestBtn')}</Text>
             <Text style={styles.recordHarvestBtnSub}>
-              Link honey harvest directly to your registered source colonies
+              Log honey extracted from your hives
             </Text>
           </View>
           <Ionicons name="arrow-forward" size={20} color={colors.surface} />
         </TouchableOpacity>
       </View>
 
-      {/* 5. Smart Hive IoT Telemetry Status (Zero fake data) */}
+      {/* 5. Smart Hive IoT Telemetry & Weight Summary (Zero fake data) */}
       <View style={styles.sensorSection}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>{t('sensorStatus')}</Text>
@@ -182,10 +203,25 @@ export function HomePage({
         {stats?.hasSensorReadings ? (
           <View style={styles.sensorCard}>
             <View style={styles.sensorMetricRow}>
+              {/* Colony Biomass / Scale Weight */}
+              <View style={styles.sensorMetric}>
+                <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
+                <View>
+                  <Text style={styles.sensorMetricValue}>
+                    {stats?.avgWeight ? `${stats.avgWeight} kg` : '-- kg'}
+                  </Text>
+                  <Text style={styles.sensorMetricLabel}>Colony Weight</Text>
+                </View>
+              </View>
+
+              <View style={styles.sensorMetricDivider} />
+
               <View style={styles.sensorMetric}>
                 <Ionicons name="thermometer-outline" size={20} color={colors.sensor.temp} />
                 <View>
-                  <Text style={styles.sensorMetricValue}>{stats.avgTemperature} °C</Text>
+                  <Text style={styles.sensorMetricValue}>
+                    {stats?.avgTemperature ? `${stats.avgTemperature} °C` : '-- °C'}
+                  </Text>
                   <Text style={styles.sensorMetricLabel}>{t('avgTemperature')}</Text>
                 </View>
               </View>
@@ -195,7 +231,9 @@ export function HomePage({
               <View style={styles.sensorMetric}>
                 <Ionicons name="water-outline" size={20} color={colors.sensor.humidity} />
                 <View>
-                  <Text style={styles.sensorMetricValue}>{stats.avgHumidity} %</Text>
+                  <Text style={styles.sensorMetricValue}>
+                    {stats?.avgHumidity ? `${stats.avgHumidity} %` : '-- %'}
+                  </Text>
                   <Text style={styles.sensorMetricLabel}>{t('avgHumidity')}</Text>
                 </View>
               </View>
@@ -208,7 +246,7 @@ export function HomePage({
               <Text style={styles.sensorNoticeTitle}>{t('sensorNotConnected')}</Text>
             </View>
             <Text style={styles.sensorNoticeText}>
-              {t('sensorNotConnectedDesc')}
+              Pair an ESP32 + HX711 scale to stream live colony weight.
             </Text>
           </View>
         )}
@@ -218,40 +256,17 @@ export function HomePage({
       <AppCard
         elevation="card"
         style={styles.traceabilityCard}
-        onPress={() => onNavigateToTab && onNavigateToTab('batches')}
+        onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
       >
         <View style={styles.traceabilityHeader}>
           <View style={styles.traceabilityIconBox}>
             <Ionicons name="qr-code-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.traceabilityTitle}>{t('traceabilityTitle')}</Text>
-            <Text style={styles.traceabilitySub}>{t('traceabilitySub')}</Text>
+            <Text style={styles.traceabilityTitle}>Honey Traceability</Text>
+            <Text style={styles.traceabilitySub}>Jar QR codes & batch verification</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </View>
-      </AppCard>
-
-      {/* 7. Government Schemes Banner (Direct official access) */}
-      <AppCard
-        elevation="card"
-        style={styles.schemesCard}
-        onPress={() => onNavigateToTab && onNavigateToTab('schemes')}
-      >
-        <View style={styles.schemesHeader}>
-          <View style={styles.schemesIconBox}>
-            <Ionicons name="ribbon-outline" size={22} color={colors.accentDeep} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.schemesTitleRow}>
-              <Text style={styles.schemesTitle}>{t('schemesBannerTitle')}</Text>
-              <View style={styles.officialTag}>
-                <Text style={styles.officialTagText}>{t('officialBadge')}</Text>
-              </View>
-            </View>
-            <Text style={styles.schemesSub}>{t('schemesBannerSub')}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
         </View>
       </AppCard>
     </ScrollView>
@@ -262,11 +277,26 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl + 16,
   },
   topHeader: {
     marginBottom: spacing.lg,
     paddingTop: spacing.xs,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  profileAvatarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   apiaryBadge: {
     flexDirection: 'row',
@@ -544,50 +574,136 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  schemesCard: {
-    marginBottom: spacing.lg,
-    padding: spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
+  profileAvatarBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  schemesHeader: {
+  profileAvatarImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  profileAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarInitials: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.primary,
+  },
+  schemesCard: {
+    marginBottom: spacing.xl,
+    padding: 0,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: borderRadius.lg,
+  },
+  schemesGovRibbon: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    backgroundColor: '#FCF8ED',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E6D2',
+    gap: spacing.xs,
   },
-  schemesIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+  schemesGovEmblem: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  schemesTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  schemesTitle: {
-    fontSize: typography.size.sm + 1,
+  schemesGovRibbonText: {
+    flex: 1,
+    fontSize: 10,
     fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
+    color: colors.accentDeep,
+    letterSpacing: 0.5,
   },
-  officialTag: {
-    backgroundColor: colors.accentSoft,
+  schemesOfficialBadge: {
+    backgroundColor: colors.accentDeep,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
   },
-  officialTagText: {
+  schemesOfficialBadgeText: {
     fontSize: 9,
     fontWeight: typography.weight.bold,
-    color: colors.accentDeep,
+    color: colors.surface,
+    letterSpacing: 0.5,
   },
-  schemesSub: {
-    fontSize: typography.size.xs,
+  schemesBody: {
+    padding: spacing.md,
+  },
+  schemesHeading: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  schemesDescription: {
+    fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
-    marginTop: 2,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  schemesHighlightsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  schemesPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  schemesPillText: {
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
+  },
+  schemesFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceBorder,
+  },
+  schemesCtaText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.primary,
+  },
+  schemesArrowCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

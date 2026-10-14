@@ -107,11 +107,11 @@ export function PublicVerificationModal({ visible, batchCode, fallbackBatch = nu
               {/* Authenticated Shield Badge */}
               <View style={styles.verifiedBanner}>
                 <View style={styles.shieldCircle}>
-                  <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
+                  <Ionicons name="shield-checkmark" size={30} color={colors.primary} />
                 </View>
-                <Text style={styles.verifiedTitle}>{t('authenticHoneyVerified')}</Text>
+                <Text style={styles.verifiedTitle}>Traceability Record Verified</Text>
                 <Text style={styles.verifiedSub}>
-                  {t('authenticHoneyDesc')}
+                  Colony source and harvest chain authenticated in HoneyChain registry.
                 </Text>
               </View>
 
@@ -159,10 +159,10 @@ export function PublicVerificationModal({ visible, batchCode, fallbackBatch = nu
 
                 {/* Blockchain Status (Honest declaration) */}
                 <View style={[styles.cardRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.label}>{t('blockchainStatusLabel')}</Text>
+                  <Text style={styles.label}>Registry Status</Text>
                   <View style={styles.blockchainPill}>
-                    <Ionicons name="cube-outline" size={13} color={colors.primaryMuted} />
-                    <Text style={styles.blockchainText}>{t('blockchainAnchorPending')}</Text>
+                    <Ionicons name="document-text-outline" size={13} color={colors.primaryMuted} />
+                    <Text style={styles.blockchainText}>Certified Off-Chain Record</Text>
                   </View>
                 </View>
               </View>
@@ -171,7 +171,7 @@ export function PublicVerificationModal({ visible, batchCode, fallbackBatch = nu
               <View style={styles.advisoryBox}>
                 <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
                 <Text style={styles.advisoryText}>
-                  This record is registered with HoneyChain National Beekeeping Traceability. Consumer verification does not disclose beekeeper contact numbers or private hive locations.
+                  This QR code confirms authentic harvest records from registered colonies. Traceability proves source origin; official food-grade certification requires certified lab moisture testing.
                 </Text>
               </View>
 

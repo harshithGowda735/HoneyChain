@@ -47,6 +47,7 @@ export function AppButton({
   };
 
   const buttonSizeStyle = {
+    minHeight: size === 'sm' ? 38 : size === 'lg' ? 52 : 48,
     paddingVertical: size === 'sm' ? spacing.xs + 2 : size === 'lg' ? spacing.md : spacing.sm + 2,
     paddingHorizontal: size === 'sm' ? spacing.md : size === 'lg' ? spacing.xl : spacing.lg,
   };

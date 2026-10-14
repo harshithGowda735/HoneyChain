@@ -15,11 +15,9 @@ import { spacing, borderRadius, typography } from '../constants/layout';
 import { globalStyles } from '../styles/globalStyles';
 import SchemeCard from '../components/schemes/SchemeCard';
 import SchemeDetailModal from '../components/schemes/SchemeDetailModal';
-import ProfileQuickEditModal from '../components/schemes/ProfileQuickEditModal';
 import EmptyState from '../components/common/EmptyState';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import LanguageSelector from '../components/common/LanguageSelector';
 import {
   getVerifiedSchemes,
   getUserSavedSchemes,
@@ -29,28 +27,19 @@ import {
 import { evaluateSchemeRelevance } from '../utils/schemeRelevance';
 
 export function SchemesPage({ onBack, hivesCount = 0 }) {
-  const { user, userProfile, updateProfile } = useAuth();
+  const { user, currentUser, userProfile } = useAuth();
   const { language, t } = useLanguage();
-
-  const filterTabs = [
-    { key: 'all', label: t('filterAll') },
-    { key: 'central', label: t('filterCentral') },
-    { key: 'karnataka', label: t('filterKarnataka') },
-    { key: 'bookmarked', label: t('filterSaved') },
-  ];
 
   const [schemes, setSchemes] = useState([]);
   const [bookmarks, setBookmarks] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Search & Filter state
+  // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
 
   // Modals state
   const [selectedScheme, setSelectedScheme] = useState(null);
-  const [profileModalVisible, setProfileModalVisible] = useState(false);
 
   // Load schemes & bookmarks
   const loadData = useCallback(async () => {
@@ -106,22 +95,24 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
     }
   };
 
-  // Profile update handler
-  const handleSaveProfile = async (updatedData) => {
-    if (updateProfile) {
-      await updateProfile(updatedData);
-    }
-  };
+  const userState = (currentUser?.state || userProfile?.state || 'Karnataka').trim();
+  const userStateLower = userState.toLowerCase();
 
-  // Filter & Search Evaluation
+  // Automatic state & Central government matching (no manual filters needed)
   const filteredSchemes = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return schemes.filter((scheme) => {
-      // 1. Level / Category Filter
-      if (activeFilter === 'central' && scheme.level !== 'Central') return false;
-      if (activeFilter === 'karnataka' && scheme.state.toLowerCase() !== 'karnataka') return false;
-      if (activeFilter === 'bookmarked' && !bookmarks.has(scheme.id)) return false;
+      // 1. Auto-match by User State or Central Government
+      const schemeStates = (scheme.applicableStates || []).map((s) => s.toLowerCase());
+      const isCentral = scheme.level === 'Central' || schemeStates.includes('all');
+      const isStateMatch =
+        (scheme.state || '').toLowerCase() === userStateLower ||
+        schemeStates.includes(userStateLower);
+
+      if (!isCentral && !isStateMatch) {
+        return false;
+      }
 
       // 2. Search Text
       if (query) {
@@ -139,7 +130,7 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
 
       return true;
     });
-  }, [schemes, searchQuery, activeFilter, bookmarks]);
+  }, [schemes, searchQuery, userStateLower]);
 
   // Selected scheme relevance
   const selectedSchemeRelevance = useMemo(() => {
@@ -147,18 +138,9 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
     return evaluateSchemeRelevance(selectedScheme, userProfile || {}, hivesCount);
   }, [selectedScheme, userProfile, hivesCount]);
 
-  const userStateDisplay = userProfile?.state || 'Karnataka (Default)';
-  const userEntityDisplay = userProfile?.entityType === 'farmer'
-    ? 'Farmer'
-    : userProfile?.entityType === 'enterprise'
-    ? 'Enterprise'
-    : userProfile?.entityType === 'fpo_shg'
-    ? 'FPO / SHG'
-    : 'Individual Beekeeper';
-
   return (
     <View style={globalStyles.screenContainer}>
-      {/* Top Header with Back Button & Language Selector */}
+      {/* Top Header with Back Button */}
       <View style={styles.topBar}>
         {onBack && (
           <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
@@ -166,19 +148,11 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
           </TouchableOpacity>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={styles.pageTitle}>{t('schemesPageTitle')}</Text>
+          <Text style={styles.pageTitle}>Government Schemes</Text>
           <Text style={styles.pageSubtitle}>
-            {t('schemesPageSub')}
+            Subsidies & grants for beekeepers
           </Text>
         </View>
-        <LanguageSelector compact />
-        <TouchableOpacity
-          onPress={() => setProfileModalVisible(true)}
-          style={styles.profileEditIconBtn}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="options-outline" size={20} color={colors.primary} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -193,28 +167,20 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
           />
         }
       >
-        {/* Profile Criteria Bar */}
-        <TouchableOpacity
-          style={styles.profileBar}
-          activeOpacity={0.8}
-          onPress={() => setProfileModalVisible(true)}
-        >
-          <View style={styles.profileBarLeft}>
-            <View style={styles.profileIconCircle}>
-              <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.profileBarTitle}>{t('matchingCriteria')}</Text>
-              <Text style={styles.profileBarSub}>
-                {userStateDisplay} • {userEntityDisplay} • {hivesCount} {hivesCount === 1 ? 'Hive' : 'Hives'}
-              </Text>
-            </View>
+        {/* Auto Location & Central Government Match Banner */}
+        <View style={styles.autoLocationBanner}>
+          <View style={styles.locationIconBox}>
+            <Ionicons name="location" size={18} color={colors.primary} />
           </View>
-          <View style={styles.profileBarAction}>
-            <Text style={styles.profileBarActionText}>{t('changeCriteria')}</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.autoLocationTitle}>
+              {userState} & Central Schemes
+            </Text>
+            <Text style={styles.autoLocationSub}>
+              Matched to your registered location
+            </Text>
           </View>
-        </TouchableOpacity>
+        </View>
 
         {/* Search Input Box */}
         <View style={styles.searchContainer}>
@@ -233,30 +199,6 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Category & Region Filter Chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterTabsContainer}
-        >
-          {filterTabs.map((tab) => {
-            const isActive = activeFilter === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.filterChip, isActive && styles.filterChipActive]}
-                onPress={() => setActiveFilter(tab.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                  {tab.label}
-                  {tab.key === 'bookmarked' && bookmarks.size > 0 ? ` (${bookmarks.size})` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
 
         {/* Schemes List */}
         {loading ? (
@@ -284,12 +226,14 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
           </View>
         ) : (
           <EmptyState
-            icon={activeFilter === 'bookmarked' ? 'bookmark-outline' : 'search-outline'}
-            title={activeFilter === 'bookmarked' ? t('noSavedSchemes') : t('noSchemesFound')}
+            icon="search-outline"
+            title={t('noSchemesFound')}
             message={
-              activeFilter === 'bookmarked'
-                ? (language === 'kn' ? 'ನೀವು ಇನ್ನೂ ಯಾವುದೇ ಯೋಜನೆಗಳನ್ನು ಉಳಿಸಿಲ್ಲ. ನಂತರ ನೋಡಲು ಬುಕ್‌ಮಾರ್ಕ್ ಚಿಹ್ನೆಯನ್ನು ಒತ್ತಿ.' : language === 'hi' ? 'आपने अभी तक कोई योजना सहेजी नहीं है। बाद में देखने के लिए बुकमार्क आइकन पर टैप करें।' : 'You have not saved any schemes yet. Tap the bookmark ribbon on any scheme to revisit it later.')
-                : (language === 'kn' ? 'ಯಾವುದೇ ಯೋಜನೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ. "NBHM", "ಪೆಟ್ಟಿಗೆ", ಅಥವಾ ಫಿಲ್ಟರ್ ಬದಲಾಯಿಸಿ ನೋಡಿ.' : language === 'hi' ? 'कोई सरकारी योजना नहीं मिली। "NBHM", "बॉक्सेस" या फ़िल्ಟರ್ बदल कर खोजें।' : 'No government schemes matched your search. Try searching for "MIDH", "NBHM", "boxes", or change your filter.')
+              language === 'kn'
+                ? 'ಯಾವುದೇ ಯೋಜನೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ. "NBHM", "ಪೆಟ್ಟಿಗೆ", ಅಥವಾ "ಸಬ್ಸಿಡಿ" ಎಂದು ಹುಡುಕಿ ನೋಡಿ.'
+                : language === 'hi'
+                ? 'कोई सरकारी योजना नहीं मिली। "NBHM", "बॉक्सेस" या "सब्सिडी" खोजें।'
+                : 'No government schemes matched your search. Try searching for "MIDH", "NBHM", or "boxes".'
             }
             actionLabel={searchQuery ? (language === 'kn' ? 'ಹುಡುಕಾಟ ತೆರವುಗೊಳಿಸಿ' : language === 'hi' ? 'खोज साफ़ करें' : 'Clear Search') : undefined}
             onAction={searchQuery ? () => setSearchQuery('') : undefined}
@@ -305,14 +249,6 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
         isBookmarked={selectedScheme ? bookmarks.has(selectedScheme.id) : false}
         onToggleBookmark={handleToggleBookmark}
         onClose={() => setSelectedScheme(null)}
-      />
-
-      {/* Profile Quick Edit Modal */}
-      <ProfileQuickEditModal
-        visible={profileModalVisible}
-        currentProfile={userProfile || {}}
-        onSave={handleSaveProfile}
-        onClose={() => setProfileModalVisible(false)}
       />
     </View>
   );
@@ -344,62 +280,50 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
-  profileEditIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl + 16,
   },
-  profileBar: {
+  autoLocationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
+    backgroundColor: '#FCF8ED',
     borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderColor: '#F0E6D2',
     borderRadius: borderRadius.md,
     padding: spacing.sm + 2,
     marginBottom: spacing.md,
-  },
-  profileBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
-    flex: 1,
   },
-  profileIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  locationIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileBarTitle: {
+  autoLocationTitle: {
     fontSize: typography.size.xs + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
-  profileBarSub: {
+  autoLocationSub: {
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 1,
   },
-  profileBarAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+  autoMatchBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
   },
-  profileBarActionText: {
-    fontSize: typography.size.xs,
+  autoMatchBadgeText: {
+    fontSize: 9,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textInverse,
+    letterSpacing: 0.4,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -422,31 +346,6 @@ const styles = StyleSheet.create({
   },
   clearSearchBtn: {
     padding: spacing.xs,
-  },
-  filterTabsContainer: {
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    fontWeight: typography.weight.medium,
-  },
-  filterChipTextActive: {
-    color: colors.textInverse,
-    fontWeight: typography.weight.bold,
   },
   loadingBox: {
     alignItems: 'center',

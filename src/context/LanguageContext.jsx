@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TRANSLATIONS } from '../i18n/translations';
 
 const LANGUAGE_STORAGE_KEY = '@honeychain_language';
+const INITIAL_LANGUAGE_CHOSEN_KEY = '@honeychain_initial_language_chosen';
 
 export const LANGUAGES = [
   { code: 'en', label: 'English', nativeName: 'English' },
@@ -14,14 +15,21 @@ const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState('en');
+  const [hasSelectedInitialLanguage, setHasSelectedInitialLanguage] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadSavedLanguage = async () => {
       try {
-        const saved = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-        if (saved && TRANSLATIONS[saved]) {
-          setLanguageState(saved);
+        const [savedLang, chosenFlag] = await Promise.all([
+          AsyncStorage.getItem(LANGUAGE_STORAGE_KEY),
+          AsyncStorage.getItem(INITIAL_LANGUAGE_CHOSEN_KEY),
+        ]);
+        if (savedLang && TRANSLATIONS[savedLang]) {
+          setLanguageState(savedLang);
+        }
+        if (chosenFlag === 'true' || savedLang) {
+          setHasSelectedInitialLanguage(true);
         }
       } catch (err) {
         console.warn('[LanguageContext] Failed to load language:', err?.message);
@@ -43,6 +51,22 @@ export function LanguageProvider({ children }) {
     }
   };
 
+  const completeInitialLanguageSelection = async (langCode) => {
+    const selected = langCode || language;
+    if (TRANSLATIONS[selected]) {
+      setLanguageState(selected);
+    }
+    setHasSelectedInitialLanguage(true);
+    try {
+      await Promise.all([
+        AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, selected),
+        AsyncStorage.setItem(INITIAL_LANGUAGE_CHOSEN_KEY, 'true'),
+      ]);
+    } catch (err) {
+      console.warn('[LanguageContext] Failed to save initial language:', err?.message);
+    }
+  };
+
   const t = (key, fallback) => {
     const dict = TRANSLATIONS[language] || TRANSLATIONS.en;
     if (dict && dict[key] !== undefined) {
@@ -60,6 +84,8 @@ export function LanguageProvider({ children }) {
       value={{
         language,
         setLanguage,
+        hasSelectedInitialLanguage,
+        completeInitialLanguageSelection,
         t,
         languages: LANGUAGES,
         loading,

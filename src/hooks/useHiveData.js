@@ -93,6 +93,9 @@ export function useHiveData() {
     // Real sensor telemetry: calculate averages ONLY from valid measurements
     const hivesWithTemp = hives.filter((h) => typeof h.temperature === 'number');
     const hivesWithHumidity = hives.filter((h) => typeof h.humidity === 'number');
+    const hivesWithWeight = hives.filter(
+      (h) => (typeof h.weight === 'number' && h.weight > 0) || (typeof h.latestWeight === 'number' && h.latestWeight > 0)
+    );
 
     const avgTemp = hivesWithTemp.length > 0
       ? (hivesWithTemp.reduce((acc, h) => acc + h.temperature, 0) / hivesWithTemp.length).toFixed(1)
@@ -100,6 +103,13 @@ export function useHiveData() {
 
     const avgHumidity = hivesWithHumidity.length > 0
       ? Math.round(hivesWithHumidity.reduce((acc, h) => acc + h.humidity, 0) / hivesWithHumidity.length)
+      : null;
+
+    const avgWeight = hivesWithWeight.length > 0
+      ? (
+          hivesWithWeight.reduce((acc, h) => acc + (h.weight ?? h.latestWeight), 0) /
+          hivesWithWeight.length
+        ).toFixed(1)
       : null;
 
     const totalQuantityKg = batches
@@ -113,9 +123,11 @@ export function useHiveData() {
       criticalHives: critical,
       avgTemperature: avgTemp,
       avgHumidity: avgHumidity,
+      avgWeight: avgWeight,
       totalHarvestedKg: totalQuantityKg,
       activeBatchesCount: batches.length,
-      hasSensorReadings: hivesWithTemp.length > 0 || hivesWithHumidity.length > 0,
+      hasSensorReadings: hivesWithTemp.length > 0 || hivesWithHumidity.length > 0 || hivesWithWeight.length > 0,
+      hasWeightReadings: hivesWithWeight.length > 0,
     };
   }, [hives, batches]);
 

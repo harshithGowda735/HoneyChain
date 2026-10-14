@@ -11,11 +11,10 @@ export function BatchCard({ batch, onPress }) {
   if (!batch) return null;
 
   const displayId = batch.batchCode || (batch.id?.length > 10 ? batch.id.slice(0, 8) : batch.id);
-  const honeyType = batch.honeyType || batch.floralSource || 'Raw Honey';
+  const honeyType = batch.honeyType || batch.floralSource || 'Extracted Honey';
   const quantity = Number(batch.quantity || batch.quantityKg || 0).toFixed(1);
   const stage = batch.status || batch.stage || 'Harvested';
-  const moisture = batch.moisture || batch.moistureContent || '--';
-  const hiveOrigin = batch.hiveName || (batch.originHives?.join(', ')) || 'Apiary Colony';
+  const hiveOrigin = batch.hiveName || (batch.sourceHiveNames?.join(', ')) || (batch.originHives?.join(', ')) || 'Apiary Colony';
 
   return (
     <AppCard
@@ -28,7 +27,7 @@ export function BatchCard({ batch, onPress }) {
       <View style={styles.topRow}>
         <View style={styles.batchIdGroup}>
           <View style={styles.amberBadge}>
-            <Ionicons name="sparkles" size={12} color={colors.accentDeep} />
+            <Ionicons name="cube-outline" size={12} color={colors.accentDeep} />
             <Text style={styles.batchIdText}>{displayId}</Text>
           </View>
           {batch.batchCode && batch.id !== batch.batchCode && (
@@ -69,8 +68,15 @@ export function BatchCard({ batch, onPress }) {
         <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Moisture</Text>
           <View style={styles.row}>
-            <Ionicons name="water-outline" size={13} color={colors.sensor.humidity} style={{ marginRight: 3 }} />
-            <Text style={styles.detailValue}>{moisture}</Text>
+            <Ionicons
+              name="water-outline"
+              size={13}
+              color={batch.moisture ? colors.sensor.humidity : colors.textMuted}
+              style={{ marginRight: 3 }}
+            />
+            <Text style={[styles.detailValue, !batch.moisture && { color: colors.textMuted }]}>
+              {batch.moisture ? `${batch.moisture}%` : 'Unrecorded'}
+            </Text>
           </View>
         </View>
       </View>

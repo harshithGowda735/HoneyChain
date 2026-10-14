@@ -43,13 +43,13 @@ export function AppCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     marginBottom: spacing.md,
   },
   padding: {
-    padding: spacing.lg,
+    padding: spacing.md + 2,
   },
 });
 

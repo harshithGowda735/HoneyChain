@@ -7,87 +7,107 @@
  * - High accessible contrast for rural sunlight readability
  */
 
+/**
+ * HoneyChain Color Palette
+ * Professional Indian Government Field-Service Agricultural System Design:
+ * - Primary forest green: #07583F
+ * - Dark green: #06452F
+ * - White: #FFFFFF
+ * - Warm cream background: #F7F5ED
+ * - Restrained saffron accent: #E87522
+ * - Main text: #1E2924
+ * - Secondary text: #66736B
+ * - Borders: #E4E2D8
+ * - Error: #B42318
+ * - Success: #16804A
+ */
+
 export const colors = {
-  // Brand & Action Colors (Government Forest Green)
-  primary: '#1B4332',        // Deep forest green (accessible, formal, trustworthy)
-  primaryLight: '#2D6A4F',   // Secondary action green
-  primarySoft: '#E8F5E9',    // High-contrast light green tint
-  primaryMuted: '#52796F',   // Subdued green tone
+  // Brand & Action Colors
+  primary: '#07583F',        // Primary forest green
+  darkGreen: '#06452F',      // Dark green
+  primaryLight: '#0E7051',   // Mid forest green
+  primarySoft: '#E6EFEA',    // Subtle forest green tint
+  primaryMuted: '#537C6E',   // Muted green
 
-  // Restrained Saffron / Agricultural Accents
-  accent: '#E65100',         // Deep saffron / harvest amber
-  accentLight: '#F57C00',    // Warm saffron accent
-  accentSoft: '#FFF3E0',     // Gentle saffron background tint
-  accentDeep: '#BF360C',     // Dark saffron border/text
+  // Restrained National Saffron / Harvest Accents
+  accent: '#E87522',         // Restrained saffron accent
+  accentLight: '#F38E45',    // Warm saffron tint
+  accentSoft: '#FDF0E7',     // Gentle saffron background tint
+  accentDeep: '#C95F16',     // Deep saffron for text/borders
 
-  // Backgrounds & Surfaces (Clean, Warm Neutral)
-  background: '#F9F6F0',     // Warm cream / parchment background
-  surface: '#FFFFFF',        // Clean white card surface
+  // Backgrounds & Surfaces
+  background: '#F7F5ED',     // Warm cream background
+  surface: '#FFFFFF',        // Pure white card & container surface
   surfaceElevated: '#FFFFFF',
-  surfaceSubtle: '#F4EFE6',   // High clarity border / subtle card
-  surfaceBorder: '#E5DED1',   // Crisp accessible divider
+  surfaceSubtle: '#F0EDE3',   // Subtle neutral surface
+  surfaceBorder: '#E4E2D8',   // Clean government border / divider
 
-  // Text Hierarchy (High Contrast)
-  textPrimary: '#17231B',    // Near-black organic slate
-  textSecondary: '#4A5B50',  // Accessible secondary moss gray
-  textMuted: '#78897E',      // Accessible subtle gray
-  textInverse: '#FFFFFF',    // Pure white on dark buttons
-  textAccent: '#BF360C',     // High-contrast saffron accent text
+  // Text Hierarchy
+  textPrimary: '#1E2924',    // Main text (high-contrast near-black slate)
+  textSecondary: '#66736B',  // Secondary text (neutral moss slate)
+  textMuted: '#8E9C94',      // Muted label & placeholder text
+  textInverse: '#FFFFFF',    // White text on dark buttons/headers
+  textAccent: '#C95F16',     // Saffron accent text
 
-  // Government Status Indicators
+  // Status Indicators
+  error: '#B42318',          // Government error red
+  success: '#16804A',        // Government success green
+  warning: '#D97706',        // Amber warning
+
   status: {
     healthy: {
-      text: '#14532D',
-      bg: '#DCFCE7',
-      border: '#86EFAC',
-      indicator: '#16A34A',
+      text: '#16804A',
+      bg: '#EAF7EE',
+      border: '#B6E8C6',
+      indicator: '#16804A',
     },
     active: {
-      text: '#14532D',
-      bg: '#DCFCE7',
-      border: '#86EFAC',
-      indicator: '#16A34A',
+      text: '#16804A',
+      bg: '#EAF7EE',
+      border: '#B6E8C6',
+      indicator: '#16804A',
     },
     attention: {
-      text: '#78350F',
+      text: '#B45309',
       bg: '#FEF3C7',
       border: '#FDE68A',
       indicator: '#D97706',
     },
     warning: {
-      text: '#78350F',
+      text: '#B45309',
       bg: '#FEF3C7',
       border: '#FDE68A',
       indicator: '#D97706',
     },
     critical: {
-      text: '#7F1D1D',
-      bg: '#FEE2E2',
-      border: '#FCA5A5',
-      indicator: '#DC2626',
+      text: '#B42318',
+      bg: '#FDF0EE',
+      border: '#FECDCA',
+      indicator: '#B42318',
     },
     neutral: {
-      text: '#374151',
-      bg: '#F3F4F6',
-      border: '#E5E7EB',
-      indicator: '#9CA3AF',
+      text: '#66736B',
+      bg: '#F0EDE3',
+      border: '#E4E2D8',
+      indicator: '#8E9C94',
     },
   },
 
   // Sensor & Telemetry Tokens
   sensor: {
-    temp: '#EA580C',         // Warm orange for temperature
+    temp: '#E87522',         // Saffron-orange for hive temperature
     humidity: '#0284C7',     // Water blue for humidity
-    weight: '#7C3AED',       // Purple for hive scale weight
-    battery: '#16A34A',      // Green for device battery
+    weight: '#7C3AED',       // Clean purple for weight
+    battery: '#16804A',      // Green for battery
   },
 
   // Bottom Navigation
   tabBar: {
     background: '#FFFFFF',
-    border: '#E5DED1',
-    activeTint: '#1B4332',
-    inactiveTint: '#78897E',
+    border: '#E4E2D8',
+    activeTint: '#07583F',
+    inactiveTint: '#66736B',
   },
 };
 

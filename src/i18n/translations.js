@@ -46,9 +46,11 @@ export const TRANSLATIONS = {
 
     // Navigation Tabs (4 Core Tabs)
     tabHome: 'Home',
+    tabApiary: 'My Apiary',
+    tabSchemes: 'Schemes',
+    tabProfile: 'Profile',
     tabHives: 'Colonies',
     tabBatches: 'Honey Batches',
-    tabProfile: 'Profile',
 
     // Home Screen (Government Service Style)
     welcome: 'Welcome',
@@ -59,21 +61,21 @@ export const TRANSLATIONS = {
     recordHarvestBtn: 'Record Harvest',
     quickActions: 'Quick Actions',
     addHive: 'Register Hive',
-    traceabilityTitle: 'Honey Traceability & QR Labels',
-    traceabilitySub: 'Generate authenticated labels for jars and consumer verification.',
-    schemesBannerTitle: 'Government Schemes & Subsidies',
-    schemesBannerSub: 'Subsidies for bee boxes, colonies, extractors & processing units.',
+    traceabilityTitle: 'Honey Traceability',
+    traceabilitySub: 'Jar QR codes & batch verification',
+    schemesBannerTitle: 'Government Schemes',
+    schemesBannerSub: 'Subsidies for hives, equipment & training',
     officialBadge: 'GOVT SCHEMES',
 
     // Onboarding when 0 Hives
-    onboardingTitle: 'Start by Registering Your First Hive',
-    onboardingDesc: 'Add your honeybee colonies to enable smart hive records, temperature tracking, and lot-by-lot honey traceability.',
-    registerFirstHiveBtn: 'Register First Colony',
+    onboardingTitle: 'Register Your First Hive',
+    onboardingDesc: 'Add a hive to start tracking colony weight and harvests.',
+    registerFirstHiveBtn: 'Register Hive',
 
     // Sensor / IoT Hive Monitoring
     sensorStatus: 'Hive IoT Monitoring',
     sensorNotConnected: 'No Sensor Connected',
-    sensorNotConnectedDesc: 'To monitor internal temperature and humidity, connect a compatible ESP32 telemetry device.',
+    sensorNotConnectedDesc: 'Connect an ESP32 + HX711 scale to stream live colony metrics.',
     sensorGuideBtn: 'How to Connect Sensors',
     avgTemperature: 'Internal Temperature',
     avgHumidity: 'Internal Humidity',
@@ -218,9 +220,11 @@ export const TRANSLATIONS = {
 
     // Navigation Tabs (4 Core Tabs)
     tabHome: 'ಮುಖಪುಟ',
+    tabApiary: 'ನನ್ನ ಜೇನುತೋಟ',
+    tabSchemes: 'ಯೋಜನೆಗಳು',
+    tabProfile: 'ಪ್ರೊಫೈಲ್',
     tabHives: 'ಪೆಟ್ಟಿಗೆಗಳು',
     tabBatches: 'ಜೇನು ಬ್ಯಾಚ್',
-    tabProfile: 'ಪ್ರೊಫೈಲ್',
 
     // Home Screen
     welcome: 'ಸುಸ್ವಾಗತ',
@@ -230,22 +234,21 @@ export const TRANSLATIONS = {
     totalHarvested: 'ಒಟ್ಟು ತೆಗೆದ ಜೇನು',
     recordHarvestBtn: 'ಜೇನು ಇಳುವರಿ ದಾಖಲಿಸಿ',
     quickActions: 'ತ್ವರಿತ ಕ್ರಿಯೆಗಳು',
-    addHive: 'ಪೆಟ್ಟಿಗೆ ಸೇರಿಸಿ',
-    traceabilityTitle: 'ಜೇನು ಶುದ್ಧತೆ & QR ಲೇಬಲ್',
-    traceabilitySub: 'ಗ್ರಾಹಕರಿಗೆ ತೋರಿಸಲು QR ಕೋಡ್ ರಚಿಸಿ ಮತ್ತು ಮುದ್ರಿಸಿ.',
-    schemesBannerTitle: 'ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು & ಸಬ್ಸಿಡಿ',
-    schemesBannerSub: 'ಜೇನು ಪೆಟ್ಟಿಗೆ, ಯಂತ್ರಗಳು ಮತ್ತು ತರಬೇತಿಗೆ ಸಹಾಯಧನ ಪಡೆಯಿರಿ.',
-    officialBadge: 'ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು',
+    traceabilityTitle: 'ಜೇನು ಟ್ರೇಸೇಬಿಲಿಟಿ',
+    traceabilitySub: 'QR ಕೋಡ್ ಮತ್ತು ಬ್ಯಾಚ್ ಪರಿಶೀಲನೆ',
+    schemesBannerTitle: 'ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು',
+    schemesBannerSub: 'ಪೆಟ್ಟಿಗೆ, ಉಪಕರಣ ಮತ್ತು ಸಬ್ಸಿಡಿ ವಿವರ',
+    officialBadge: 'ಸರ್ಕಾರಿ ಯೋಜನೆ',
 
     // Onboarding when 0 Hives
-    onboardingTitle: 'ನಿಮ್ಮ ಮೊದಲ ಜೇನುಪೆಟ್ಟಿಗೆಯನ್ನು ನೋಂದಾಯಿಸಿ',
-    onboardingDesc: 'ಜೇನು ಕುಟುಂಬದ ಆರೋಗ್ಯ, ಉಷ್ಣತೆ ಮತ್ತು ಜೇನು ಇಳುವರಿ ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ಪೆಟ್ಟಿಗೆಯನ್ನು ಸೇರಿಸಿ.',
-    registerFirstHiveBtn: 'ಮೊದಲ ಪೆಟ್ಟಿಗೆ ಸೇರಿಸಿ',
+    onboardingTitle: 'ಮೊದಲ ಪೆಟ್ಟಿಗೆ ನೋಂದಾಯಿಸಿ',
+    onboardingDesc: 'ತೂಕ ಮತ್ತು ಇಳುವರಿ ತಿಳಿಯಲು ಪೆಟ್ಟಿಗೆಯನ್ನು ಸೇರಿಸಿ.',
+    registerFirstHiveBtn: 'ಪೆಟ್ಟಿಗೆ ಸೇರಿಸಿ',
 
     // Sensor / IoT Hive Monitoring
-    sensorStatus: 'ಸ್ಮಾರ್ಟ್ ಸೆನ್ಸಾರ್ ಮಾಹಿತಿ',
+    sensorStatus: 'ಸೆನ್ಸಾರ್ ಮಾಹಿತಿ',
     sensorNotConnected: 'ಸೆನ್ಸಾರ್ ಜೋಡಣೆಯಾಗಿಲ್ಲ',
-    sensorNotConnectedDesc: 'ಪೆಟ್ಟಿಗೆಯ ಒಳಗಿನ ತಾಪಮಾನ ಮತ್ತು ತೇವಾಂಶ ತಿಳಿಯಲು ESP32 ಸೆನ್ಸಾರ್ ಸಾಧನವನ್ನು ಸಂಪರ್ಕಿಸಿ.',
+    sensorNotConnectedDesc: 'ESP32 ಸ್ಕೇಲ್ ಸಂಪರ್ಕಿಸಿ ಲೈವ್ ತೂಕ ಪಡೆಯಿರಿ.',
     sensorGuideBtn: 'ಸೆನ್ಸಾರ್ ಜೋಡಿಸುವುದು ಹೇಗೆ',
     avgTemperature: 'ಒಳಗಿನ ತಾಪಮಾನ',
     avgHumidity: 'ಒಳಗಿನ ತೇವಾಂಶ',
@@ -390,9 +393,11 @@ export const TRANSLATIONS = {
 
     // Navigation Tabs (4 Core Tabs)
     tabHome: 'होम',
+    tabApiary: 'मेरी मधुमक्खीशाला',
+    tabSchemes: 'योजनाएं',
+    tabProfile: 'प्रोफ़ाइल',
     tabHives: 'बक्से',
     tabBatches: 'शहद बैच',
-    tabProfile: 'प्रोफ़ाइल',
 
     // Home Screen
     welcome: 'स्वागत है',
@@ -402,22 +407,21 @@ export const TRANSLATIONS = {
     totalHarvested: 'कुल निकाला गया शहद',
     recordHarvestBtn: 'शहद कटाई दर्ज करें',
     quickActions: 'त्वरित कार्य',
-    addHive: 'बक्सा जोड़ें',
-    traceabilityTitle: 'शहद शुद्धता & QR लेबल',
-    traceabilitySub: 'ग्राहकों के लिए QR लेबल बनाएं और शुद्धता प्रमाणित करें।',
-    schemesBannerTitle: 'सरकारी योजनाएं और सब्सिडी',
-    schemesBannerSub: 'बक्से, उपकरण और प्रशिक्षण पर सरकारी अनुदान खोजें।',
-    officialBadge: 'सरकारी योजनाएं',
+    traceabilityTitle: 'शहद ट्रेसेबिलिटी',
+    traceabilitySub: 'QR कोड और बैच सत्यापन',
+    schemesBannerTitle: 'सरकारी योजनाएं',
+    schemesBannerSub: 'बक्से, उपकरण और सब्सिडी',
+    officialBadge: 'सरकारी योजना',
 
     // Onboarding when 0 Hives
-    onboardingTitle: 'अपना पहला मधुमक्खी बक्सा पंजीकृत करें',
-    onboardingDesc: 'स्वास्थ्य, तापमान और शहद कटाई को ट्रैक करने के लिए अपना पहला बक्सा जोड़ें।',
-    registerFirstHiveBtn: 'पहला बक्सा जोड़ें',
+    onboardingTitle: 'पहला बक्सा जोड़ें',
+    onboardingDesc: 'वजन और कटाई ट्रैक करने के लिए बक्सा जोड़ें।',
+    registerFirstHiveBtn: 'बक्सा जोड़ें',
 
     // Sensor / IoT Hive Monitoring
-    sensorStatus: 'स्मार्ट सेंसर निगरानी',
+    sensorStatus: 'सेंसर निगरानी',
     sensorNotConnected: 'सेंसर कनेक्ट नहीं है',
-    sensorNotConnectedDesc: 'आंतरिक तापमान और आर्द्रता मापने के लिए संगत ESP32 सेंसर जोड़ें।',
+    sensorNotConnectedDesc: 'ESP32 स्केल जोड़कर लाइव वजन देखें।',
     sensorGuideBtn: 'सेंसर कैसे जोड़ें',
     avgTemperature: 'आंतरिक तापमान',
     avgHumidity: 'आंतरिक आर्द्रता',

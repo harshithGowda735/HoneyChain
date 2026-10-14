@@ -155,7 +155,7 @@ export function ProfilePage() {
                 />
               ) : (
                 <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitials}>{getAvatarInitials()}</Text>
+                  <Ionicons name="person" size={26} color={colors.textSecondary} />
                 </View>
               )}
 
@@ -170,15 +170,9 @@ export function ProfilePage() {
             </TouchableOpacity>
 
             <View style={{ flex: 1 }}>
-              <View style={styles.row}>
-                <Text style={styles.beekeeperName}>
-                  {currentUser?.name || 'Beekeeper'}
-                </Text>
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
-                  <Text style={styles.verifiedText}>Verified</Text>
-                </View>
-              </View>
+              <Text style={styles.beekeeperName}>
+                {currentUser?.name || 'Beekeeper'}
+              </Text>
 
               <Text style={styles.beekeeperRole}>{currentUser?.role || 'Beekeeper'}</Text>
               <Text style={styles.beekeeperPhone}>
@@ -234,18 +228,18 @@ export function ProfilePage() {
                 {userProfile?.entityType === 'enterprise'
                   ? 'Commercial Beekeeper'
                   : userProfile?.entityType === 'fpo_shg'
-                  ? 'FPO / SHG Member'
-                  : 'Individual Farmer'}
+                    ? 'FPO / SHG Member'
+                    : 'Individual Farmer'}
               </Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <View style={styles.infoIconBox}>
-              <Ionicons name="finger-print-outline" size={18} color={colors.primary} />
+              <Ionicons name="key-outline" size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Farmer UID</Text>
+              <Text style={styles.infoLabel}>Account ID</Text>
               <Text style={styles.uidText} numberOfLines={1} selectable>
                 {user?.uid}
               </Text>
@@ -294,9 +288,7 @@ export function ProfilePage() {
           />
         </View>
 
-        <Text style={styles.versionText}>
-          HoneyChain Version 1.0.0 (KVIC / NBHM Architecture Ready)
-        </Text>
+        <Text style={styles.versionText}>HoneyChain v1.0.0</Text>
       </ScrollView>
 
       {/* Edit Profile Modal */}

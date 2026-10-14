@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,29 +9,32 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../constants/layout';
 import AppButton from '../components/common/AppButton';
-import LanguageSelector from '../components/common/LanguageSelector';
 import FirebaseRecaptchaModal from '../components/auth/FirebaseRecaptchaModal';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, LANGUAGES } from '../context/LanguageContext';
 
 export function AuthPage({ onOpenPublicScanner }) {
   const { sendOtp, verifyOtp } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const {
+    language,
+    hasSelectedInitialLanguage,
+    completeInitialLanguageSelection,
+    t,
+  } = useLanguage();
 
-  // Auth Step: 'phone' -> 'otp'
-  const [step, setStep] = useState('phone');
+  // Internal flow state: 'language' | 'phone' | 'otp'
+  const [step, setStep] = useState(hasSelectedInitialLanguage ? 'phone' : 'language');
+  const [selectedLang, setSelectedLang] = useState(language || 'en');
 
   // Input states
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [apiaryName, setApiaryName] = useState('');
+  const [demoOtpCode, setDemoOtpCode] = useState('123456');
 
   // OTP flow state
   const [sessionInfo, setSessionInfo] = useState(null);
@@ -39,11 +42,18 @@ export function AuthPage({ onOpenPublicScanner }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
-  // Recaptcha challenge modal
+  // Recaptcha modal
   const [recaptchaVisible, setRecaptchaVisible] = useState(false);
   const [pendingPhone, setPendingPhone] = useState('');
 
-  // Resend cooldown timer
+  // Sync if language was selected elsewhere
+  useEffect(() => {
+    if (hasSelectedInitialLanguage && step === 'language') {
+      setStep('phone');
+    }
+  }, [hasSelectedInitialLanguage]);
+
+  // Resend countdown timer
   useEffect(() => {
     let timer;
     if (cooldownSeconds > 0) {
@@ -58,10 +68,15 @@ export function AuthPage({ onOpenPublicScanner }) {
     return text.replace(/[^0-9]/g, '').slice(0, 10);
   };
 
+  const handleLanguageContinue = async () => {
+    await completeInitialLanguageSelection(selectedLang);
+    setStep('phone');
+  };
+
   const handleSendOtp = async (recaptchaToken = '') => {
     const rawDigits = cleanPhoneDigits(phoneNumber);
     if (rawDigits.length !== 10) {
-      setErrorMessage(t('invalidPhone'));
+      setErrorMessage(t('invalidPhone', 'Please enter a valid 10-digit mobile number.'));
       return;
     }
 
@@ -71,7 +86,8 @@ export function AuthPage({ onOpenPublicScanner }) {
 
     try {
       const result = await sendOtp(fullPhone, recaptchaToken);
-      setSessionInfo(result.sessionInfo);
+      setSessionInfo(result?.sessionInfo);
+      setDemoOtpCode(result?.demoOtp || '123456');
       setPendingPhone(fullPhone);
       setStep('otp');
       setCooldownSeconds(60);
@@ -79,14 +95,13 @@ export function AuthPage({ onOpenPublicScanner }) {
     } catch (err) {
       const code = err?.code || '';
       if (code.includes('captcha') || code.includes('TOO_MANY_ATTEMPTS')) {
-        // Trigger webview recaptcha challenge modal
         setRecaptchaVisible(true);
       } else if (code.includes('invalid-phone') || code.includes('INVALID_PHONE_NUMBER')) {
-        setErrorMessage(t('invalidPhone'));
+        setErrorMessage(t('invalidPhone', 'Please enter a valid 10-digit mobile number.'));
       } else if (code.includes('quota') || code.includes('QUOTA_EXCEEDED')) {
-        setErrorMessage('SMS limit exceeded. Please try again later or use official test credentials.');
+        setErrorMessage('SMS limit reached. Please try test numbers (+91 9876543210 / 123456).');
       } else {
-        setErrorMessage(err?.message || 'Failed to send OTP. Please check your network and number.');
+        setErrorMessage(err?.message || 'Failed to send OTP. Check network and phone number.');
       }
     } finally {
       setIsSubmitting(false);
@@ -100,7 +115,7 @@ export function AuthPage({ onOpenPublicScanner }) {
 
   const handleVerifyOtp = async () => {
     if (!otpCode || otpCode.trim().length !== 6) {
-      setErrorMessage(t('invalidOtp'));
+      setErrorMessage(t('invalidOtp', 'Please enter the complete 6-digit OTP code.'));
       return;
     }
 
@@ -116,15 +131,12 @@ export function AuthPage({ onOpenPublicScanner }) {
     try {
       await verifyOtp(sessionInfo, otpCode.trim(), {
         phoneNumber: pendingPhone,
-        displayName: displayName.trim() || undefined,
-        apiaryName: apiaryName.trim() || undefined,
         preferredLanguage: language,
       });
-      // Auth success is captured by onAuthStateChanged in AuthContext
     } catch (err) {
       const code = err?.code || '';
       if (code.includes('invalid') || code.includes('INVALID_CODE')) {
-        setErrorMessage(t('invalidOtp'));
+        setErrorMessage(t('invalidOtp', 'Please enter the complete 6-digit OTP code.'));
       } else if (code.includes('expired') || code.includes('SESSION_EXPIRED')) {
         setErrorMessage('OTP expired. Please request a new code.');
       } else {
@@ -145,223 +157,234 @@ export function AuthPage({ onOpenPublicScanner }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Government Language Selection Header (Pre-Auth) */}
-        <View style={styles.topLanguageSection}>
-          <Text style={styles.chooseLanguageTitle}>{t('selectLanguage')}</Text>
-          <LanguageSelector compact={false} />
-        </View>
-
-        {/* Government Agri Identity Header */}
-        <View style={styles.header}>
-          <View style={styles.emblemBadge}>
-            <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
-          </View>
-          <Text style={styles.appName}>{t('appName')}</Text>
-          <Text style={styles.tagline}>{t('tagline')}</Text>
-          <View style={styles.govTag}>
-            <Ionicons name="leaf-outline" size={13} color={colors.primary} />
-            <Text style={styles.govTagText}>{t('govInitiativeSub')}</Text>
-          </View>
-        </View>
-
-        {/* Main Phone Authentication Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            {step === 'phone' ? t('newBeekeeperTitle') : t('enterOtp')}
-          </Text>
-          <Text style={styles.cardSubtitle}>
-            {step === 'phone'
-              ? t('newBeekeeperSub')
-              : `${t('otpSentTo')} +91 ${cleanPhoneDigits(phoneNumber)}`}
-          </Text>
-
-          {/* Error Banner */}
-          {errorMessage ? (
-            <View style={styles.errorBanner}>
-              <Ionicons
-                name="alert-circle"
-                size={18}
-                color={colors.status.critical.text}
-              />
-              <Text style={styles.errorText}>{errorMessage}</Text>
+        {/* 1. First-Time Pre-Auth Language Selection Screen */}
+        {step === 'language' ? (
+          <View style={styles.languageWrapper}>
+            <View style={styles.brandHeader}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="nutrition-outline" size={32} color={colors.primary} />
+              </View>
+              <Text style={styles.appName}>HoneyChain</Text>
+              <Text style={styles.tagline}>Smart Beekeeping. Trusted Honey.</Text>
             </View>
-          ) : null}
 
-          {step === 'phone' ? (
-            <>
-              {/* Optional Beekeeper Profile Details for New Accounts */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{t('nameLabel')}</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.icon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder={t('namePlaceholder')}
-                    placeholderTextColor={colors.textMuted}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    editable={!isSubmitting}
-                  />
-                </View>
+            <View style={styles.card}>
+              <Text style={styles.cardHeading}>Select Language</Text>
+              <Text style={styles.cardSub}>Choose your preferred language for the app.</Text>
+
+              <View style={styles.langList}>
+                {LANGUAGES.map((langItem) => {
+                  const isSelected = selectedLang === langItem.code;
+                  return (
+                    <TouchableOpacity
+                      key={langItem.code}
+                      activeOpacity={0.7}
+                      onPress={() => setSelectedLang(langItem.code)}
+                      style={[
+                        styles.langCard,
+                        isSelected && styles.langCardSelected,
+                      ]}
+                    >
+                      <View style={styles.langCardLeft}>
+                        <Ionicons
+                          name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                          size={20}
+                          color={isSelected ? colors.primary : colors.textMuted}
+                        />
+                        <View style={{ marginLeft: spacing.sm }}>
+                          <Text style={[styles.langNativeName, isSelected && styles.langTextSelected]}>
+                            {langItem.nativeName}
+                          </Text>
+                          <Text style={styles.langLabel}>{langItem.label}</Text>
+                        </View>
+                      </View>
+                      {isSelected ? (
+                        <Ionicons name="checkmark" size={18} color={colors.primary} />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{t('apiaryNameLabel')}</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="home-outline" size={18} color={colors.textMuted} style={styles.icon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder={t('apiaryNamePlaceholder')}
-                    placeholderTextColor={colors.textMuted}
-                    value={apiaryName}
-                    onChangeText={setApiaryName}
-                    editable={!isSubmitting}
-                  />
-                </View>
+              <AppButton
+                title="Continue"
+                variant="primary"
+                size="lg"
+                onPress={handleLanguageContinue}
+                style={styles.continueBtn}
+              />
+            </View>
+          </View>
+        ) : (
+          /* 2. Phone Login & OTP Screens */
+          <View style={styles.authWrapper}>
+            {/* Minimal Brand Header */}
+            <View style={styles.brandHeader}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="nutrition-outline" size={30} color={colors.primary} />
               </View>
+              <Text style={styles.appName}>HoneyChain</Text>
+              <Text style={styles.tagline}>Smart Beekeeping. Trusted Honey.</Text>
+            </View>
 
-              {/* Mobile Number Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{t('mobileNumber')} *</Text>
-                <View style={styles.phoneInputRow}>
-                  <View style={styles.countryCodeBox}>
-                    <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
+            {/* Auth Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardHeading}>
+                {step === 'phone' ? 'Welcome' : 'Enter OTP'}
+              </Text>
+              <Text style={styles.cardSub}>
+                {step === 'phone'
+                  ? 'Sign in to your apiary.'
+                  : `OTP sent to ${pendingPhone || `+91 ${phoneNumber}`}`}
+              </Text>
+
+              {/* Error Alert */}
+              {errorMessage ? (
+                <View style={styles.errorAlert}>
+                  <Ionicons name="alert-circle" size={18} color={colors.error} />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              ) : null}
+
+              {step === 'phone' ? (
+                <>
+                  {/* Phone Input Row */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>{t('mobileNumber')}</Text>
+                    <View style={styles.phoneInputRow}>
+                      <View style={styles.countryCodeBadge}>
+                        <Text style={styles.countryCodeText}>+91</Text>
+                      </View>
+                      <TextInput
+                        style={styles.phoneInput}
+                        placeholder={t('mobileNumberPlaceholder', '10-digit mobile number')}
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        value={phoneNumber}
+                        onChangeText={(txt) => setPhoneNumber(cleanPhoneDigits(txt))}
+                        editable={!isSubmitting}
+                      />
+                    </View>
                   </View>
-                  <View style={[styles.inputContainer, { flex: 1 }]}>
+
+                  {/* Continue Button */}
+                  <AppButton
+                    title={isSubmitting ? t('sendingOtp') : t('sendOtp')}
+                    variant="primary"
+                    size="lg"
+                    loading={isSubmitting}
+                    onPress={() => handleSendOtp('')}
+                    style={styles.continueBtn}
+                  />
+
+                  {/* Public Consumer QR Verification Shortcut */}
+                  <View style={styles.consumerDivider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>CONSUMER ACCESS</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.consumerScanBtn}
+                    activeOpacity={0.7}
+                    onPress={onOpenPublicScanner}
+                  >
+                    <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
+                    <Text style={styles.consumerScanText}>
+                      Verify Honey Jar (No Login Required)
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                /* OTP Verification Step */
+                <>
+                  {/* Demo OTP Box */}
+                  <TouchableOpacity
+                    style={styles.demoOtpCard}
+                    activeOpacity={0.8}
+                    onPress={() => setOtpCode(demoOtpCode)}
+                  >
+                    <View style={styles.demoOtpContent}>
+                      <View style={styles.demoOtpBadge}>
+                        <Ionicons name="key" size={13} color={colors.accentDeep} />
+                        <Text style={styles.demoOtpBadgeText}>DEMO OTP</Text>
+                      </View>
+                      <Text style={styles.demoOtpCodeText}>{demoOtpCode}</Text>
+                    </View>
+                    <View style={styles.demoOtpFillPill}>
+                      <Text style={styles.demoOtpFillText}>Tap to fill</Text>
+                      <Ionicons name="arrow-down" size={12} color={colors.primary} />
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>{t('enterOtp')}</Text>
                     <TextInput
-                      style={[styles.input, styles.phoneInputText]}
-                      placeholder={t('mobileNumberPlaceholder')}
+                      style={styles.otpInput}
+                      placeholder="• • • • • •"
                       placeholderTextColor={colors.textMuted}
-                      value={phoneNumber}
-                      onChangeText={(val) => setPhoneNumber(cleanPhoneDigits(val))}
-                      keyboardType="phone-pad"
-                      maxLength={10}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      value={otpCode}
+                      onChangeText={setOtpCode}
                       editable={!isSubmitting}
                     />
                   </View>
-                </View>
-              </View>
 
-              <AppButton
-                title={isSubmitting ? t('sendingOtp') : t('sendOtp')}
-                iconName="arrow-forward-outline"
-                variant="primary"
-                size="lg"
-                loading={isSubmitting}
-                disabled={isSubmitting || cleanPhoneDigits(phoneNumber).length !== 10}
-                onPress={() => handleSendOtp()}
-                style={styles.submitBtn}
-              />
+                  {/* Resend OTP & Change Phone Actions */}
+                  <View style={styles.otpActionsRow}>
+                    {cooldownSeconds > 0 ? (
+                      <Text style={styles.cooldownText}>
+                        Resend code in {cooldownSeconds}s
+                      </Text>
+                    ) : (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => handleSendOtp('')}
+                        disabled={isSubmitting}
+                      >
+                        <Text style={styles.resendLink}>{t('resendOtp')}</Text>
+                      </TouchableOpacity>
+                    )}
 
-              <Text style={styles.disclaimerText}>
-                {t('phoneAuthDisclaimer')}
-              </Text>
-            </>
-          ) : (
-            <>
-              {/* 6-Digit OTP Entry */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{t('enterOtp')} *</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="key-outline" size={18} color={colors.textMuted} style={styles.icon} />
-                  <TextInput
-                    style={[styles.input, styles.otpInputText]}
-                    placeholder={t('otpPlaceholder')}
-                    placeholderTextColor={colors.textMuted}
-                    value={otpCode}
-                    onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 6))}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    autoFocus
-                    editable={!isSubmitting}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setStep('phone');
+                        setErrorMessage('');
+                      }}
+                    >
+                      <Text style={styles.changePhoneLink}>{t('changeNumber')}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Verify & Sign In Button */}
+                  <AppButton
+                    title={isSubmitting ? t('verifyingOtp') : t('verifyAndLogin')}
+                    variant="primary"
+                    size="lg"
+                    loading={isSubmitting}
+                    onPress={handleVerifyOtp}
+                    style={styles.continueBtn}
                   />
-                </View>
-              </View>
-
-              <AppButton
-                title={isSubmitting ? t('verifyingOtp') : t('verifyAndLogin')}
-                iconName="checkmark-circle-outline"
-                variant="primary"
-                size="lg"
-                loading={isSubmitting}
-                disabled={isSubmitting || otpCode.length !== 6}
-                onPress={handleVerifyOtp}
-                style={styles.submitBtn}
-              />
-
-              {/* OTP Resend & Change Number Actions */}
-              <View style={styles.otpActionsRow}>
-                {cooldownSeconds > 0 ? (
-                  <Text style={styles.cooldownText}>
-                    {t('resendCooldown').replace('{s}', String(cooldownSeconds))}
-                  </Text>
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => handleSendOtp()}
-                    disabled={isSubmitting}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.resendLink}>{t('resendOtp')}</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  onPress={() => {
-                    setStep('phone');
-                    setOtpCode('');
-                    setErrorMessage('');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.changeNumberLink}>{t('changeNumber')}</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* Public Consumer Honey Verification Box */}
-        {onOpenPublicScanner && (
-          <View style={styles.consumerVerifyBox}>
-            <View style={styles.consumerHeaderRow}>
-              <View style={styles.consumerIconCircle}>
-                <Ionicons name="qr-code-outline" size={20} color={colors.accentDeep} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.consumerVerifyTitle}>{t('publicConsumerSection')}</Text>
-                <Text style={styles.consumerVerifyDesc}>{t('verifyJarDesc')}</Text>
-              </View>
+                </>
+              )}
             </View>
-            <AppButton
-              title={t('verifyJarPublic')}
-              iconName="camera-outline"
-              variant="outline"
-              size="md"
-              onPress={onOpenPublicScanner}
-              style={styles.consumerBtn}
-            />
           </View>
         )}
 
-        {/* Official Security Footer */}
-        <View style={styles.footer}>
-          <Ionicons name="shield-checkmark" size={14} color={colors.textMuted} />
-          <Text style={styles.footerText}>
-            Secured by Government-Grade Firebase Telemetry & Cloud Firestore
-          </Text>
-        </View>
+        {/* Security ReCAPTCHA Modal */}
+        <FirebaseRecaptchaModal
+          visible={recaptchaVisible}
+          onClose={() => setRecaptchaVisible(false)}
+          onSuccess={handleRecaptchaSuccess}
+          onError={(err) => {
+            setRecaptchaVisible(false);
+            setErrorMessage(err || 'Verification failed. Please retry.');
+          }}
+        />
       </ScrollView>
-
-      {/* Embedded Recaptcha Modal */}
-      <FirebaseRecaptchaModal
-        visible={recaptchaVisible}
-        onClose={() => setRecaptchaVisible(false)}
-        onSuccess={handleRecaptchaSuccess}
-        onError={(err) => {
-          setRecaptchaVisible(false);
-          setErrorMessage(err?.message || 'Security check failed. Please try again.');
-        }}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -375,39 +398,26 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
-  topLanguageSection: {
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    marginBottom: spacing.lg,
+  languageWrapper: {
+    width: '100%',
+  },
+  authWrapper: {
+    width: '100%',
+  },
+  brandHeader: {
     alignItems: 'center',
+    marginBottom: spacing.xl,
   },
-  chooseLanguageTitle: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  emblemBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  logoBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
-    borderWidth: 2,
-    borderColor: colors.primary,
   },
   appName: {
     fontSize: typography.size.xxl,
@@ -416,198 +426,242 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: typography.size.xs + 1,
+    fontSize: typography.size.sm,
     color: colors.textSecondary,
     marginTop: 2,
-    textAlign: 'center',
-  },
-  govTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.sm,
-    marginTop: spacing.xs,
-    gap: 4,
-  },
-  govTagText: {
-    fontSize: typography.size.xs - 1,
-    fontWeight: typography.weight.semibold,
-    color: colors.primary,
+    fontWeight: typography.weight.medium,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
+    padding: spacing.xl,
     ...shadows.card,
-    marginBottom: spacing.lg,
   },
-  cardTitle: {
-    fontSize: typography.size.lg,
+  cardHeading: {
+    fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
+    marginBottom: 4,
   },
-  cardSubtitle: {
-    fontSize: typography.size.xs + 1,
+  cardSub: {
+    fontSize: typography.size.sm,
     color: colors.textSecondary,
-    marginTop: 2,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    lineHeight: 18,
   },
-  errorBanner: {
+  langList: {
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  langCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surfaceSubtle,
+  },
+  langCardSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  langCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  langNativeName: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.textPrimary,
+  },
+  langTextSelected: {
+    color: colors.primary,
+  },
+  langLabel: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+  },
+  continueBtn: {
+    marginTop: spacing.xs,
+  },
+  errorAlert: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.status.critical.bg,
-    borderColor: colors.status.critical.border,
     borderWidth: 1,
+    borderColor: colors.status.critical.border,
     borderRadius: borderRadius.md,
-    padding: spacing.sm,
+    padding: spacing.md,
     marginBottom: spacing.md,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   errorText: {
-    fontSize: typography.size.xs,
-    color: colors.status.critical.text,
     flex: 1,
+    fontSize: typography.size.sm,
+    color: colors.error,
   },
   inputGroup: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  label: {
-    fontSize: typography.size.xs + 1,
+  inputLabel: {
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs + 2,
   },
   phoneInputRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  countryCodeBox: {
-    backgroundColor: colors.surfaceSubtle,
+    alignItems: 'center',
+    height: 48,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceSubtle,
+    overflow: 'hidden',
+  },
+  countryCodeBadge: {
     paddingHorizontal: spacing.md,
-    justifyContent: 'center',
+    height: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceBorder,
   },
   countryCodeText: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
-  phoneInputText: {
+  phoneInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: spacing.md,
     fontSize: typography.size.md,
-    fontWeight: typography.weight.bold,
-    letterSpacing: 1.5,
+    color: colors.textPrimary,
+    letterSpacing: 1,
   },
-  otpInputText: {
-    fontSize: typography.size.lg,
-    fontWeight: typography.weight.bold,
-    textAlign: 'center',
-    letterSpacing: 6,
-  },
-  inputContainer: {
+  consumerDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    marginVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.surfaceBorder,
+  },
+  dividerText: {
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  consumerScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    gap: spacing.sm,
+  },
+  consumerScanText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
+  },
+  otpInput: {
+    height: 52,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-  },
-  icon: {
-    marginRight: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    height: 48,
-    fontSize: typography.size.sm + 1,
-    color: colors.textPrimary,
-  },
-  submitBtn: {
-    width: '100%',
-    marginTop: spacing.xs,
-  },
-  disclaimerText: {
-    fontSize: typography.size.xs - 1,
-    color: colors.textMuted,
+    backgroundColor: colors.surfaceSubtle,
     textAlign: 'center',
-    marginTop: spacing.md,
-    lineHeight: 16,
+    fontSize: typography.size.xxl,
+    letterSpacing: 8,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
   },
   otpActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginBottom: spacing.xl,
   },
   cooldownText: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs + 1,
     color: colors.textMuted,
   },
   resendLink: {
     fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.bold,
+    fontWeight: typography.weight.semibold,
     color: colors.primary,
   },
-  changeNumberLink: {
+  changePhoneLink: {
     fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.semibold,
-    color: colors.accentDeep,
-  },
-  consumerVerifyBox: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
-  },
-  consumerHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  consumerIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  consumerVerifyTitle: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  consumerVerifyDesc: {
-    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
     color: colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
+    textDecorationLine: 'underline',
   },
-  consumerBtn: {
-    width: '100%',
-  },
-  footer: {
+  demoOtpCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
+    justifyContent: 'space-between',
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
   },
-  footerText: {
-    fontSize: typography.size.xs - 1,
-    color: colors.textMuted,
-    textAlign: 'center',
+  demoOtpContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  demoOtpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    gap: 3,
+  },
+  demoOtpBadgeText: {
+    fontSize: typography.size.xs - 2,
+    fontWeight: typography.weight.bold,
+    color: colors.accentDeep,
+    letterSpacing: 0.5,
+  },
+  demoOtpCodeText: {
+    fontSize: typography.size.md + 1,
+    fontWeight: typography.weight.bold,
+    color: colors.accentDeep,
+    letterSpacing: 2,
+  },
+  demoOtpFillPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    gap: 3,
+  },
+  demoOtpFillText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
   },
 });
 

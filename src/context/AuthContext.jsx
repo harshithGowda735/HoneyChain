@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../constants/config';
 import {
   auth,
@@ -16,6 +17,7 @@ import {
 } from '../services/userService';
 
 const AuthContext = createContext(null);
+const AUTH_SESSION_KEY = '@honeychain_auth_session';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -24,29 +26,60 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
-    // Subscribe to Firebase Auth state changes
+    let isMounted = true;
+
+    // 1. Restore local session immediately for smooth offline & demo persistence
+    AsyncStorage.getItem(AUTH_SESSION_KEY)
+      .then(async (raw) => {
+        if (!isMounted) return;
+        if (raw) {
+          try {
+            const cachedUser = JSON.parse(raw);
+            if (cachedUser?.uid) {
+              setUser(cachedUser);
+              const profile = await getUserProfile(cachedUser.uid);
+              if (profile && isMounted) {
+                setUserProfile(profile);
+              }
+            }
+          } catch (_) {}
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    // 2. Subscribe to Firebase Auth state changes
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        setUser(firebaseUser);
+        if (!isMounted) return;
         if (firebaseUser) {
+          setUser(firebaseUser);
+          await AsyncStorage.setItem(
+            AUTH_SESSION_KEY,
+            JSON.stringify({
+              uid: firebaseUser.uid,
+              phoneNumber: firebaseUser.phoneNumber || '',
+              displayName: firebaseUser.displayName || 'Beekeeper',
+            })
+          );
           try {
-            // Load or initialize user profile doc in Firestore
             const profile = await createUserProfile(firebaseUser.uid, {
               phoneNumber: firebaseUser.phoneNumber || '',
               displayName: firebaseUser.displayName || '',
+              isProfileComplete: true,
             });
             setUserProfile(profile);
           } catch (profileErr) {
             console.warn('[HoneyChain Auth] User profile load error:', profileErr?.message);
           }
-        } else {
-          setUserProfile(null);
         }
         setLoading(false);
         setAuthError(null);
       },
       (error) => {
+        if (!isMounted) return;
         console.error('[HoneyChain Auth] onAuthStateChanged error:', error);
         setAuthError(error);
         setLoading(false);
@@ -54,7 +87,10 @@ export function AuthProvider({ children }) {
     );
 
     // Clean up subscription on unmount
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   /**
@@ -70,15 +106,31 @@ export function AuthProvider({ children }) {
    */
   const verifyOtp = async (sessionInfo, code, extraData = {}) => {
     setAuthError(null);
-    const userCredential = await verifyPhoneOtpAndSignIn(sessionInfo, code);
+    const userCredential = await verifyPhoneOtpAndSignIn(sessionInfo, code, extraData.phoneNumber || '');
+
     if (userCredential?.user?.uid) {
+      const activeUser = userCredential.user;
+
+      // Immediately activate user in state so navigation triggers to Home
+      setUser(activeUser);
+
+      await AsyncStorage.setItem(
+        AUTH_SESSION_KEY,
+        JSON.stringify({
+          uid: activeUser.uid,
+          phoneNumber: activeUser.phoneNumber || extraData.phoneNumber || '',
+          displayName: activeUser.displayName || extraData.displayName || 'Beekeeper',
+        })
+      );
+
       try {
-        const profile = await createUserProfile(userCredential.user.uid, {
-          phoneNumber: userCredential.user.phoneNumber || extraData.phoneNumber || '',
+        const profile = await createUserProfile(activeUser.uid, {
+          phoneNumber: activeUser.phoneNumber || extraData.phoneNumber || '',
           displayName: extraData.displayName || 'Beekeeper',
           apiaryName: extraData.apiaryName || config.defaultApiaryName,
           preferredLanguage: extraData.preferredLanguage || 'en',
           role: 'beekeeper',
+          isProfileComplete: true, // Direct entry to Home page
         });
         setUserProfile(profile);
       } catch (e) {
@@ -93,7 +145,9 @@ export function AuthProvider({ children }) {
    */
   const signOut = async () => {
     setAuthError(null);
+    setUser(null);
     setUserProfile(null);
+    await AsyncStorage.removeItem(AUTH_SESSION_KEY);
     return await signOutUser();
   };
 

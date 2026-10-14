@@ -5,11 +5,11 @@ import * as Linking from 'expo-linking';
 import colors from '../constants/colors';
 import BottomTabBar from '../components/navigation/BottomTabBar';
 import HomePage from '../pages/HomePage';
-import HivesPage from '../pages/HivesPage';
-import BatchesPage from '../pages/BatchesPage';
+import ApiaryPage from '../pages/ApiaryPage';
 import ProfilePage from '../pages/ProfilePage';
 import SchemesPage from '../pages/SchemesPage';
 import AuthPage from '../pages/AuthPage';
+import FirstTimeSetupPage from '../pages/FirstTimeSetupPage';
 import { useAuth } from '../context/AuthContext';
 import { useHiveData } from '../hooks/useHiveData';
 import { QRScannerModal } from '../components/batches/QRScannerModal';
@@ -19,7 +19,7 @@ import { QRCodeModal } from '../components/batches/QRCodeModal';
 
 export function AppNavigator() {
   const insets = useSafeAreaInsets();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('home');
   const [publicVerifyCode, setPublicVerifyCode] = useState(null);
   const [publicScannerVisible, setPublicScannerVisible] = useState(false);
@@ -105,8 +105,22 @@ export function AppNavigator() {
     );
   }
 
+  // First-time beekeeper setup flow
+  if (userProfile && userProfile.isProfileComplete === false) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <FirstTimeSetupPage onComplete={() => setActiveTab('home')} />
+      </View>
+    );
+  }
+
   const handleTabChange = (tabKey) => {
-    setActiveTab(tabKey);
+    // Graceful routing from legacy tab names to unified apiary tab
+    if (tabKey === 'hives' || tabKey === 'batches') {
+      setActiveTab('apiary');
+    } else {
+      setActiveTab(tabKey);
+    }
   };
 
   const renderActiveScreen = () => {
@@ -122,43 +136,25 @@ export function AppNavigator() {
             onOpenRecordHarvest={() => setRecordHarvestVisible(true)}
           />
         );
+      case 'apiary':
       case 'hives':
+      case 'batches':
         return (
-          <HivesPage
+          <ApiaryPage
             hives={hiveData.hives}
-            filteredHives={hiveData.filteredHives}
-            searchQuery={hiveData.hiveSearchQuery}
-            onSearchChange={hiveData.setHiveSearchQuery}
-            statusFilter={hiveData.hiveStatusFilter}
-            onStatusFilterChange={hiveData.setHiveStatusFilter}
-            selectedHive={hiveData.selectedHive}
-            onSelectHive={hiveData.setSelectedHiveId}
             batches={hiveData.batches}
+            loading={hiveData.loading}
+            error={hiveData.error}
+            onRefresh={hiveData.refreshData}
             onAddHive={hiveData.addHive}
             onUpdateHive={hiveData.updateHive}
             onDeleteHive={hiveData.deleteHive}
-            onAddReading={hiveData.addReading}
-            loading={hiveData.loading}
-            error={hiveData.error}
-            onRefresh={hiveData.refreshData}
-          />
-        );
-      case 'batches':
-        return (
-          <BatchesPage
-            batches={hiveData.batches}
-            filteredBatches={hiveData.filteredBatches}
-            hives={hiveData.hives}
-            searchQuery={hiveData.batchSearchQuery}
-            onSearchChange={hiveData.setBatchSearchQuery}
-            selectedBatch={hiveData.selectedBatch}
-            onSelectBatch={hiveData.setSelectedBatchId}
             onAddBatch={hiveData.addBatch}
             onUpdateBatch={hiveData.updateBatch}
             onDeleteBatch={hiveData.deleteBatch}
-            loading={hiveData.loading}
-            error={hiveData.error}
-            onRefresh={hiveData.refreshData}
+            onAddReading={hiveData.addReading}
+            onOpenScanner={() => setPublicScannerVisible(true)}
+            onOpenPublicVerify={(code) => setPublicVerifyCode(code)}
           />
         );
       case 'schemes':
@@ -188,7 +184,7 @@ export function AppNavigator() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.screenArea}>{renderActiveScreen()}</View>
       <BottomTabBar
-        activeTab={activeTab === 'schemes' ? 'home' : activeTab}
+        activeTab={activeTab}
         onTabPress={handleTabChange}
         bottomInset={insets.bottom}
       />
@@ -202,7 +198,7 @@ export function AppNavigator() {
         onSubmitHarvest={hiveData.addBatch}
         onOpenAddHive={() => {
           setRecordHarvestVisible(false);
-          setActiveTab('hives');
+          setActiveTab('apiary');
         }}
         onViewQrForBatch={(batch) => {
           setCreatedBatchForQr(batch);
