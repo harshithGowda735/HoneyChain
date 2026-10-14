@@ -15,12 +15,15 @@ import AppButton from '../common/AppButton';
 import { getPublicBatchVerification } from '../../services/batchService';
 import { formatDate } from '../../utils/formatDate';
 import { useLanguage } from '../../context/LanguageContext';
+import { detectCurrentLocation } from '../../services/locationService';
 
 export function PublicVerificationModal({ visible, batchCode, fallbackBatch = null, onClose, onScanAnother }) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [verifiedBatch, setVerifiedBatch] = useState(null);
   const [error, setError] = useState(null);
+  const [customerLocation, setCustomerLocation] = useState(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
   useEffect(() => {
     if (!visible || !batchCode) {
@@ -33,6 +36,18 @@ export function PublicVerificationModal({ visible, batchCode, fallbackBatch = nu
     const fetchVerification = async () => {
       setLoading(true);
       setError(null);
+      setDetectingLocation(true);
+
+      // Detect customer location in parallel
+      detectCurrentLocation(true).then((loc) => {
+        if (isMounted && loc) {
+          setCustomerLocation(loc.formatted || `${loc.district ? `${loc.district}, ` : ''}${loc.state}`);
+          setDetectingLocation(false);
+        }
+      }).catch(() => {
+        if (isMounted) setDetectingLocation(false);
+      });
+
       try {
         const publicData = await getPublicBatchVerification(batchCode);
         if (isMounted) {
@@ -147,6 +162,17 @@ export function PublicVerificationModal({ visible, batchCode, fallbackBatch = nu
                 <View style={styles.cardRow}>
                   <Text style={styles.label}>Apiary Yard / Location</Text>
                   <Text style={styles.value}>{verifiedBatch.originLocation}</Text>
+                </View>
+
+                {/* Customer Verification Location */}
+                <View style={styles.cardRow}>
+                  <Text style={styles.label}>Customer Scan Location</Text>
+                  <View style={styles.customerLocationPill}>
+                    <Ionicons name="location-outline" size={13} color={colors.primary} />
+                    <Text style={styles.customerLocationText}>
+                      {detectingLocation ? 'Detecting GPS...' : customerLocation || 'Local Scan'}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.cardRow}>
@@ -383,6 +409,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: typography.weight.medium,
     color: colors.textSecondary,
+  },
+  customerLocationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  customerLocationText: {
+    fontSize: 11,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
   },
   advisoryBox: {
     flexDirection: 'row',
