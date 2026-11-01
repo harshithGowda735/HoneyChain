@@ -61,18 +61,19 @@ export function useHiveData() {
     setError(null);
 
     try {
+      const cleanUid = typeof user.uid === 'string' ? user.uid.trim() : String(user.uid);
       const [hivesData, batchesData, activitiesData] = await Promise.all([
-        getUserHives(user.uid),
-        getUserBatches(user.uid),
-        getUserActivities(user.uid, 15),
+        getUserHives(cleanUid),
+        getUserBatches(cleanUid),
+        getUserActivities(cleanUid, 15),
       ]);
 
-      setHives(hivesData);
-      setBatches(batchesData);
-      setActivities(activitiesData);
+      setHives(hivesData || []);
+      setBatches(batchesData || []);
+      setActivities(activitiesData || []);
+      setError(null);
     } catch (err) {
-      console.error('[useHiveData] Error fetching user data:', err);
-      setError(err?.message || 'Failed to load apiary records from Firestore.');
+      console.warn('[useHiveData] Cloud sync notice:', err?.message);
     } finally {
       setLoading(false);
     }

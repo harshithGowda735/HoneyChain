@@ -119,39 +119,40 @@ export function determineSensorConnectionStatus(hive, latestReading) {
  */
 
 export async function addHiveReading(hiveId, uid, readingData) {
-  if (!hiveId || !uid) throw new Error('Hive ID and User ID are required.');
+  if (!hiveId || typeof hiveId !== 'string' || !hiveId.trim()) return null;
+  const cleanHiveId = hiveId.trim();
 
   // Validate that the user owns the parent hive
   try {
-    await getHiveById(hiveId, uid);
+    if (uid) await getHiveById(cleanHiveId, uid);
   } catch (_) {}
 
   const reading = {
-    temperature: typeof readingData.temperature === 'number' && !isNaN(readingData.temperature) ? readingData.temperature : null,
-    humidity: typeof readingData.humidity === 'number' && !isNaN(readingData.humidity) ? readingData.humidity : null,
-    weight: typeof readingData.weight === 'number' && !isNaN(readingData.weight) ? readingData.weight : null,
-    batteryLevel: typeof readingData.batteryLevel === 'number' && !isNaN(readingData.batteryLevel) ? readingData.batteryLevel : null,
-    source: readingData.source || 'manual', // 'esp32' | 'manual'
-    deviceId: readingData.deviceId || null,
-    notes: readingData.notes || '',
+    temperature: typeof readingData?.temperature === 'number' && !isNaN(readingData.temperature) ? readingData.temperature : null,
+    humidity: typeof readingData?.humidity === 'number' && !isNaN(readingData.humidity) ? readingData.humidity : null,
+    weight: typeof readingData?.weight === 'number' && !isNaN(readingData.weight) ? readingData.weight : null,
+    batteryLevel: typeof readingData?.batteryLevel === 'number' && !isNaN(readingData.batteryLevel) ? readingData.batteryLevel : null,
+    source: readingData?.source || 'manual', // 'esp32' | 'manual'
+    deviceId: readingData?.deviceId || null,
+    notes: readingData?.notes || '',
     recordedAt: new Date().toISOString(),
   };
 
   // 1. Save to local cache first
-  const localList = await getLocalReadings(hiveId);
+  const localList = await getLocalReadings(cleanHiveId);
   const updatedLocal = [reading, ...localList].slice(0, 100);
-  await saveLocalReadings(hiveId, updatedLocal);
+  await saveLocalReadings(cleanHiveId, updatedLocal);
 
   // 2. Persist to Firestore
   try {
-    const readingsRef = collection(db, 'hives', hiveId, 'readings');
+    const readingsRef = collection(db, 'hives', cleanHiveId, 'readings');
     const docRef = await addDoc(readingsRef, {
       ...reading,
       recordedAt: serverTimestamp(),
     });
 
     // Update parent hive latest readings cache
-    const hiveDocRef = doc(db, 'hives', hiveId);
+    const hiveDocRef = doc(db, 'hives', cleanHiveId);
     const hiveUpdates = {
       updatedAt: serverTimestamp(),
     };
@@ -169,13 +170,14 @@ export async function addHiveReading(hiveId, uid, readingData) {
 }
 
 export async function getRecentHiveReadings(hiveId, uid, limitCount = 50) {
-  if (!hiveId || !uid) throw new Error('Hive ID and User ID are required.');
+  if (!hiveId || typeof hiveId !== 'string' || !hiveId.trim()) return [];
+  const cleanHiveId = hiveId.trim();
 
   // Check local cache
-  const localReadings = await getLocalReadings(hiveId);
+  const localReadings = await getLocalReadings(cleanHiveId);
 
   try {
-    const readingsRef = collection(db, 'hives', hiveId, 'readings');
+    const readingsRef = collection(db, 'hives', cleanHiveId, 'readings');
     const q = query(
       readingsRef,
       orderBy('recordedAt', 'desc'),

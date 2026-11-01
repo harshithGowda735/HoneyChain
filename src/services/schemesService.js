@@ -30,11 +30,12 @@ export async function getVerifiedSchemes() {
  * Fetches the user's saved scheme bookmark IDs.
  */
 export async function getUserSavedSchemes(uid) {
-  if (!uid) return [];
+  if (!uid || typeof uid !== 'string' || !uid.trim()) return [];
+  const cleanUid = uid.trim();
 
   // Try cloud Firestore first
   try {
-    const savedColRef = collection(db, 'users', uid, 'saved_schemes');
+    const savedColRef = collection(db, 'users', cleanUid, 'saved_schemes');
     const snap = await getDocs(savedColRef);
     const bookmarks = [];
 

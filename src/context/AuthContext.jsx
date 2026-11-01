@@ -18,28 +18,39 @@ import {
 
 const AuthContext = createContext(null);
 const AUTH_SESSION_KEY = '@honeychain_auth_session';
+const ROLE_STORAGE_KEY = '@honeychain_active_role';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [activeRole, setActiveRole] = useState('beekeeper');
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Restore local session immediately for smooth offline & demo persistence
-    AsyncStorage.getItem(AUTH_SESSION_KEY)
-      .then(async (raw) => {
+    // 1. Restore local session & role immediately
+    Promise.all([
+      AsyncStorage.getItem(AUTH_SESSION_KEY),
+      AsyncStorage.getItem(ROLE_STORAGE_KEY),
+    ])
+      .then(async ([rawSession, rawRole]) => {
         if (!isMounted) return;
-        if (raw) {
+        if (rawRole && (rawRole === 'beekeeper' || rawRole === 'customer')) {
+          setActiveRole(rawRole);
+        }
+        if (rawSession) {
           try {
-            const cachedUser = JSON.parse(raw);
+            const cachedUser = JSON.parse(rawSession);
             if (cachedUser?.uid) {
               setUser(cachedUser);
               const profile = await getUserProfile(cachedUser.uid);
               if (profile && isMounted) {
                 setUserProfile(profile);
+                if (!rawRole && profile.role) {
+                  setActiveRole(profile.role);
+                }
               }
             }
           } catch (_) {}
@@ -114,23 +125,27 @@ export function AuthProvider({ children }) {
       // Immediately activate user in state so navigation triggers to Home
       setUser(activeUser);
 
+      const selectedRole = extraData.role || activeRole || 'beekeeper';
+      setActiveRole(selectedRole);
+      await AsyncStorage.setItem(ROLE_STORAGE_KEY, selectedRole);
+
       await AsyncStorage.setItem(
         AUTH_SESSION_KEY,
         JSON.stringify({
           uid: activeUser.uid,
           phoneNumber: activeUser.phoneNumber || extraData.phoneNumber || '',
-          displayName: activeUser.displayName || extraData.displayName || 'Beekeeper',
+          displayName: activeUser.displayName || extraData.displayName || (selectedRole === 'customer' ? 'Customer' : 'Beekeeper'),
         })
       );
 
       try {
         const profile = await createUserProfile(activeUser.uid, {
           phoneNumber: activeUser.phoneNumber || extraData.phoneNumber || '',
-          displayName: extraData.displayName || 'Beekeeper',
+          displayName: extraData.displayName || (selectedRole === 'customer' ? 'Customer' : 'Beekeeper'),
           apiaryName: extraData.apiaryName || config.defaultApiaryName,
           preferredLanguage: extraData.preferredLanguage || 'en',
-          role: 'beekeeper',
-          isProfileComplete: true, // Direct entry to Home page
+          role: selectedRole,
+          isProfileComplete: true, // Direct entry to Home / Market page
         });
         setUserProfile(profile);
       } catch (e) {
@@ -161,13 +176,27 @@ export function AuthProvider({ children }) {
     return updated;
   };
 
-  // Derived Beekeeper display profile
+  /**
+   * Switch between Beekeeper and Customer roles
+   */
+  const switchRole = async (newRole) => {
+    if (newRole !== 'beekeeper' && newRole !== 'customer') return;
+    setActiveRole(newRole);
+    try {
+      await AsyncStorage.setItem(ROLE_STORAGE_KEY, newRole);
+      if (user?.uid) {
+        await updateUserProfile(user.uid, { role: newRole });
+      }
+    } catch (_) {}
+  };
+
+  // Derived display profile
   const currentUser = user
     ? {
         uid: user.uid,
-        name: userProfile?.displayName || user.displayName || 'Beekeeper',
+        name: userProfile?.displayName || user.displayName || (activeRole === 'beekeeper' ? 'Beekeeper' : 'Customer'),
         phoneNumber: user.phoneNumber || userProfile?.phoneNumber || '',
-        role: userProfile?.role || 'beekeeper',
+        role: activeRole,
         apiaryName: userProfile?.apiaryName || config.defaultApiaryName,
         photoUrl: userProfile?.photoUrl || user.photoURL || null,
         state: userProfile?.state || 'Karnataka',
@@ -181,6 +210,8 @@ export function AuthProvider({ children }) {
       value={{
         user,
         userProfile,
+        activeRole,
+        switchRole,
         loading,
         currentUser,
         isRealAuthConnected: Boolean(user),

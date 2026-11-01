@@ -11,15 +11,18 @@ import SchemesPage from '../pages/SchemesPage';
 import AuthPage from '../pages/AuthPage';
 import FirstTimeSetupPage from '../pages/FirstTimeSetupPage';
 import { useAuth } from '../context/AuthContext';
+import { CartProvider } from '../context/CartContext';
 import { useHiveData } from '../hooks/useHiveData';
 import { QRScannerModal } from '../components/batches/QRScannerModal';
 import { PublicVerificationModal } from '../components/batches/PublicVerificationModal';
 import { RecordHarvestModal } from '../components/batches/RecordHarvestModal';
 import { QRCodeModal } from '../components/batches/QRCodeModal';
+import ExplorePage from '../pages/customer/ExplorePage';
+import OrdersPage from '../pages/customer/OrdersPage';
 
 export function AppNavigator() {
   const insets = useSafeAreaInsets();
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, activeRole, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('home');
   const [publicVerifyCode, setPublicVerifyCode] = useState(null);
   const [publicScannerVisible, setPublicScannerVisible] = useState(false);
@@ -63,6 +66,19 @@ export function AppNavigator() {
     return () => subscription.remove();
   }, []);
 
+  // Synchronize active tab when switching between Beekeeper and Customer roles
+  useEffect(() => {
+    if (activeRole === 'customer') {
+      if (activeTab === 'home' || activeTab === 'apiary' || activeTab === 'schemes') {
+        setActiveTab('explore');
+      }
+    } else {
+      if (activeTab === 'explore' || activeTab === 'orders') {
+        setActiveTab('home');
+      }
+    }
+  }, [activeRole]);
+
   const handleScanCode = (scannedCode) => {
     setPublicScannerVisible(false);
     if (scannedCode) {
@@ -105,8 +121,8 @@ export function AppNavigator() {
     );
   }
 
-  // First-time beekeeper setup flow
-  if (userProfile && userProfile.isProfileComplete === false) {
+  // First-time beekeeper setup flow (only for beekeeper role)
+  if (activeRole === 'beekeeper' && userProfile && userProfile.isProfileComplete === false) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <FirstTimeSetupPage onComplete={() => setActiveTab('home')} />
@@ -124,6 +140,38 @@ export function AppNavigator() {
   };
 
   const renderActiveScreen = () => {
+    // 1. Customer Experience Screens
+    if (activeRole === 'customer') {
+      switch (activeTab) {
+        case 'explore':
+          return (
+            <ExplorePage
+              onOpenPublicVerify={(code) => setPublicVerifyCode(code)}
+              onOpenScanner={() => setPublicScannerVisible(true)}
+              onNavigateToOrders={() => setActiveTab('orders')}
+            />
+          );
+        case 'orders':
+          return (
+            <OrdersPage
+              onOpenPublicVerify={(code) => setPublicVerifyCode(code)}
+              onNavigateToExplore={() => setActiveTab('explore')}
+            />
+          );
+        case 'profile':
+          return <ProfilePage />;
+        default:
+          return (
+            <ExplorePage
+              onOpenPublicVerify={(code) => setPublicVerifyCode(code)}
+              onOpenScanner={() => setPublicScannerVisible(true)}
+              onNavigateToOrders={() => setActiveTab('orders')}
+            />
+          );
+      }
+    }
+
+    // 2. Beekeeper Experience Screens
     switch (activeTab) {
       case 'home':
         return (
@@ -181,41 +229,44 @@ export function AppNavigator() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.screenArea}>{renderActiveScreen()}</View>
-      <BottomTabBar
-        activeTab={activeTab}
-        onTabPress={handleTabChange}
-        bottomInset={insets.bottom}
-      />
-      {verificationModals}
+    <CartProvider>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.screenArea}>{renderActiveScreen()}</View>
+        <BottomTabBar
+          activeTab={activeTab}
+          onTabPress={handleTabChange}
+          bottomInset={insets.bottom}
+          role={activeRole}
+        />
+        {verificationModals}
 
-      {/* Global Record Harvest Modal from Home Action */}
-      <RecordHarvestModal
-        visible={recordHarvestVisible}
-        hives={hiveData.hives}
-        onClose={() => setRecordHarvestVisible(false)}
-        onSubmitHarvest={hiveData.addBatch}
-        onOpenAddHive={() => {
-          setRecordHarvestVisible(false);
-          setActiveTab('apiary');
-        }}
-        onViewQrForBatch={(batch) => {
-          setCreatedBatchForQr(batch);
-        }}
-      />
+        {/* Global Record Harvest Modal from Home Action */}
+        <RecordHarvestModal
+          visible={recordHarvestVisible}
+          hives={hiveData.hives}
+          onClose={() => setRecordHarvestVisible(false)}
+          onSubmitHarvest={hiveData.addBatch}
+          onOpenAddHive={() => {
+            setRecordHarvestVisible(false);
+            setActiveTab('apiary');
+          }}
+          onViewQrForBatch={(batch) => {
+            setCreatedBatchForQr(batch);
+          }}
+        />
 
-      {/* QR Code Modal for newly recorded batch */}
-      <QRCodeModal
-        visible={Boolean(createdBatchForQr)}
-        batch={createdBatchForQr}
-        onClose={() => setCreatedBatchForQr(null)}
-        onPreviewVerification={(code) => {
-          setCreatedBatchForQr(null);
-          setPublicVerifyCode(code);
-        }}
-      />
-    </View>
+        {/* QR Code Modal for newly recorded batch */}
+        <QRCodeModal
+          visible={Boolean(createdBatchForQr)}
+          batch={createdBatchForQr}
+          onClose={() => setCreatedBatchForQr(null)}
+          onPreviewVerification={(code) => {
+            setCreatedBatchForQr(null);
+            setPublicVerifyCode(code);
+          }}
+        />
+      </View>
+    </CartProvider>
   );
 }
 

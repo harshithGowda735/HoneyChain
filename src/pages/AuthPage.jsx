@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage, LANGUAGES } from '../context/LanguageContext';
 
 export function AuthPage({ onOpenPublicScanner }) {
-  const { sendOtp, verifyOtp } = useAuth();
+  const { sendOtp, verifyOtp, activeRole, switchRole } = useAuth();
   const {
     language,
     hasSelectedInitialLanguage,
@@ -30,6 +30,12 @@ export function AuthPage({ onOpenPublicScanner }) {
   // Internal flow state: 'language' | 'phone' | 'otp'
   const [step, setStep] = useState(hasSelectedInitialLanguage ? 'phone' : 'language');
   const [selectedLang, setSelectedLang] = useState(language || 'en');
+  const [selectedRole, setSelectedRole] = useState(activeRole || 'beekeeper');
+
+  const handleRoleSelect = (role) => {
+    setSelectedRole(role);
+    if (switchRole) switchRole(role);
+  };
 
   // Input states
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -132,6 +138,7 @@ export function AuthPage({ onOpenPublicScanner }) {
       await verifyOtp(sessionInfo, otpCode.trim(), {
         phoneNumber: pendingPhone,
         preferredLanguage: language,
+        role: selectedRole,
       });
     } catch (err) {
       const code = err?.code || '';
@@ -230,11 +237,15 @@ export function AuthPage({ onOpenPublicScanner }) {
             {/* Auth Card */}
             <View style={styles.card}>
               <Text style={styles.cardHeading}>
-                {step === 'phone' ? 'Welcome' : 'Enter OTP'}
+                {step === 'phone'
+                  ? (selectedRole === 'customer' ? 'Customer Sign In' : 'Beekeeper Sign In')
+                  : 'Enter OTP'}
               </Text>
               <Text style={styles.cardSub}>
                 {step === 'phone'
-                  ? 'Sign in to your apiary.'
+                  ? (selectedRole === 'customer'
+                      ? 'Discover fresh honey directly from local beekeepers.'
+                      : 'Sign in to manage hives, telemetry & harvests.')
                   : `OTP sent to ${pendingPhone || `+91 ${phoneNumber}`}`}
               </Text>
 
@@ -248,9 +259,97 @@ export function AuthPage({ onOpenPublicScanner }) {
 
               {step === 'phone' ? (
                 <>
+                  {/* Account Mode Selection (Before Mobile Number) */}
+                  <View style={styles.roleSelectionBlock}>
+                    <Text style={styles.roleSelectionLabel}>Select Account Mode</Text>
+                    <View style={styles.roleCardRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.roleCard,
+                          selectedRole === 'beekeeper' && styles.roleCardActive,
+                        ]}
+                        onPress={() => handleRoleSelect('beekeeper')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.roleCardTop}>
+                          <View
+                            style={[
+                              styles.roleIconCircle,
+                              selectedRole === 'beekeeper' && styles.roleIconCircleActive,
+                            ]}
+                          >
+                            <Ionicons
+                              name="construct"
+                              size={16}
+                              color={selectedRole === 'beekeeper' ? colors.primary : colors.textSecondary}
+                            />
+                          </View>
+                          <Ionicons
+                            name={selectedRole === 'beekeeper' ? 'radio-button-on' : 'radio-button-off'}
+                            size={16}
+                            color={selectedRole === 'beekeeper' ? colors.primary : colors.textLight}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.roleCardTitle,
+                            selectedRole === 'beekeeper' && styles.roleCardTitleActive,
+                          ]}
+                        >
+                          Beekeeper
+                        </Text>
+                        <Text style={styles.roleCardSub}>
+                          Manage apiary & sell honey
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.roleCard,
+                          selectedRole === 'customer' && styles.roleCardActive,
+                        ]}
+                        onPress={() => handleRoleSelect('customer')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.roleCardTop}>
+                          <View
+                            style={[
+                              styles.roleIconCircle,
+                              selectedRole === 'customer' && styles.roleIconCircleActive,
+                            ]}
+                          >
+                            <Ionicons
+                              name="cart"
+                              size={16}
+                              color={selectedRole === 'customer' ? colors.primary : colors.textSecondary}
+                            />
+                          </View>
+                          <Ionicons
+                            name={selectedRole === 'customer' ? 'radio-button-on' : 'radio-button-off'}
+                            size={16}
+                            color={selectedRole === 'customer' ? colors.primary : colors.textLight}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.roleCardTitle,
+                            selectedRole === 'customer' && styles.roleCardTitleActive,
+                          ]}
+                        >
+                          Customer
+                        </Text>
+                        <Text style={styles.roleCardSub}>
+                          Buy honey & track orders
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
                   {/* Phone Input Row */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>{t('mobileNumber')}</Text>
+                    <Text style={styles.inputLabel}>
+                      {selectedRole === 'customer' ? 'Customer Mobile Number' : 'Beekeeper Mobile Number'}
+                    </Text>
                     <View style={styles.phoneInputRow}>
                       <View style={styles.countryCodeBadge}>
                         <Text style={styles.countryCodeText}>+91</Text>
@@ -662,6 +761,62 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
     color: colors.primary,
+  },
+  roleSelectionBlock: {
+    marginBottom: spacing.md,
+  },
+  roleSelectionLabel: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs + 2,
+  },
+  roleCardRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  roleCard: {
+    flex: 1,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceBorder,
+    padding: spacing.sm + 2,
+    gap: 4,
+  },
+  roleCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  roleCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  roleIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  roleIconCircleActive: {
+    backgroundColor: '#fff',
+  },
+  roleCardTitle: {
+    fontSize: 13,
+    fontWeight: typography.weight.bold,
+    color: colors.textSecondary,
+  },
+  roleCardTitleActive: {
+    color: colors.primaryDark,
+  },
+  roleCardSub: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    lineHeight: 14,
   },
 });
 

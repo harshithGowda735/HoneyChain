@@ -31,7 +31,7 @@ const ENTITY_OPTIONS = [
 ];
 
 export function ProfilePage() {
-  const { user, userProfile, currentUser, updateProfile, signOut } = useAuth();
+  const { user, userProfile, currentUser, activeRole, updateProfile, signOut } = useAuth();
   const { t } = useLanguage();
 
   const [editModalVisible, setEditModalVisible] = useState(false);

@@ -49,6 +49,8 @@ export const TRANSLATIONS = {
     tabApiary: 'My Apiary',
     tabSchemes: 'Schemes',
     tabProfile: 'Profile',
+    tabExplore: 'Market',
+    tabOrders: 'My Orders',
     tabHives: 'Colonies',
     tabBatches: 'Honey Batches',
 
@@ -223,6 +225,8 @@ export const TRANSLATIONS = {
     tabApiary: 'ನನ್ನ ಜೇನುತೋಟ',
     tabSchemes: 'ಯೋಜನೆಗಳು',
     tabProfile: 'ಪ್ರೊಫೈಲ್',
+    tabExplore: 'ಮಾರುಕಟ್ಟೆ',
+    tabOrders: 'ನನ್ನ ಆರ್ಡರ್‌ಗಳು',
     tabHives: 'ಪೆಟ್ಟಿಗೆಗಳು',
     tabBatches: 'ಜೇನು ಬ್ಯಾಚ್',
 
@@ -396,6 +400,8 @@ export const TRANSLATIONS = {
     tabApiary: 'मेरी मधुमक्खीशाला',
     tabSchemes: 'योजनाएं',
     tabProfile: 'प्रोफ़ाइल',
+    tabExplore: 'बाजार',
+    tabOrders: 'मेरे ऑर्डर',
     tabHives: 'बक्से',
     tabBatches: 'शहद बैच',
 

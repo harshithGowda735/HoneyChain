@@ -29,6 +29,8 @@ import {
 } from '../services/sensorService';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import BeekeeperProductsSection from '../components/apiary/BeekeeperProductsSection';
+import BeekeeperOrdersSection from '../components/apiary/BeekeeperOrdersSection';
 
 export function ApiaryPage({
   hives = [],
@@ -590,6 +592,16 @@ export function ApiaryPage({
             </View>
           )}
         </View>
+
+        {/* =========================================================================
+            SECTION D: MARKETPLACE LISTINGS & INVENTORY
+           ========================================================================= */}
+        <BeekeeperProductsSection batches={batches} />
+
+        {/* =========================================================================
+            SECTION E: LIVE CUSTOMER ORDERS
+           ========================================================================= */}
+        <BeekeeperOrdersSection />
       </ScrollView>
 
       {/* =========================================================================

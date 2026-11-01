@@ -5,40 +5,71 @@ import colors from '../../constants/colors';
 import { spacing, typography, shadows } from '../../constants/layout';
 import { useLanguage } from '../../context/LanguageContext';
 
-export const TABS = [
+export const BEEKEEPER_TABS = [
   {
     key: 'home',
     labelKey: 'tabHome',
+    defaultLabel: 'Home',
     iconActive: 'home',
     iconInactive: 'home-outline',
   },
   {
     key: 'apiary',
     labelKey: 'tabApiary',
+    defaultLabel: 'My Apiary',
     iconActive: 'grid',
     iconInactive: 'grid-outline',
   },
   {
     key: 'schemes',
     labelKey: 'tabSchemes',
+    defaultLabel: 'Schemes',
     iconActive: 'ribbon',
     iconInactive: 'ribbon-outline',
   },
   {
     key: 'profile',
     labelKey: 'tabProfile',
+    defaultLabel: 'Profile',
     iconActive: 'person',
     iconInactive: 'person-outline',
   },
 ];
 
-export function BottomTabBar({ activeTab = 'home', onTabPress, bottomInset = 0 }) {
+export const CUSTOMER_TABS = [
+  {
+    key: 'explore',
+    labelKey: 'tabExplore',
+    defaultLabel: 'Market',
+    iconActive: 'storefront',
+    iconInactive: 'storefront-outline',
+  },
+  {
+    key: 'orders',
+    labelKey: 'tabOrders',
+    defaultLabel: 'My Orders',
+    iconActive: 'receipt',
+    iconInactive: 'receipt-outline',
+  },
+  {
+    key: 'profile',
+    labelKey: 'tabProfile',
+    defaultLabel: 'Profile',
+    iconActive: 'person',
+    iconInactive: 'person-outline',
+  },
+];
+
+export const TABS = BEEKEEPER_TABS;
+
+export function BottomTabBar({ activeTab = 'home', onTabPress, bottomInset = 0, role = 'beekeeper' }) {
   const { t } = useLanguage();
+  const tabs = role === 'customer' ? CUSTOMER_TABS : BEEKEEPER_TABS;
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(bottomInset, 12) }]}>
       <View style={styles.tabBar}>
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
             <TouchableOpacity
@@ -63,7 +94,7 @@ export function BottomTabBar({ activeTab = 'home', onTabPress, bottomInset = 0 }
                   },
                 ]}
               >
-                {t(tab.labelKey)}
+                {t(tab.labelKey, tab.defaultLabel)}
               </Text>
             </TouchableOpacity>
           );
