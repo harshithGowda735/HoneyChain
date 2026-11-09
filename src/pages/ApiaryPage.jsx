@@ -26,6 +26,7 @@ import { formatDate } from '../utils/formatDate';
 import {
   determineSensorConnectionStatus,
   getRecentHiveReadings,
+  subscribeRecentHiveReadings,
 } from '../services/sensorService';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -54,14 +55,39 @@ export function ApiaryPage({
   const [selectedHiveReadings, setSelectedHiveReadings] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(null);
 
-  // Load historical readings when selectedHive changes
+  // Auto-sync active selectedHive with live hives prop updates from Firestore
+  React.useEffect(() => {
+    if (selectedHive?.id && Array.isArray(hives)) {
+      const liveHive = hives.find((h) => h.id === selectedHive.id);
+      if (
+        liveHive &&
+        (liveHive.temperature !== selectedHive.temperature ||
+          liveHive.weight !== selectedHive.weight ||
+          liveHive.humidity !== selectedHive.humidity ||
+          liveHive.battery !== selectedHive.battery ||
+          liveHive.lastReadingAt !== selectedHive.lastReadingAt ||
+          liveHive.updatedAt !== selectedHive.updatedAt)
+      ) {
+        setSelectedHive(liveHive);
+      }
+    }
+  }, [hives, selectedHive?.id]);
+
+  // Real-time subscription to historical readings for the currently selected hive
+  // Updates the weight trend chart immediately when a hardware reading arrives.
   React.useEffect(() => {
     let isMounted = true;
     if (selectedHive?.id && user?.uid) {
-      getRecentHiveReadings(selectedHive.id, user.uid, 50).then((list) => {
-        if (isMounted) {
+      const unsubscribe = subscribeRecentHiveReadings(
+        selectedHive.id,
+        user.uid,
+        (list) => {
+          if (!isMounted) return;
           // If no readings in subcollection but hive has weight property, create baseline
-          if (list.length === 0 && (typeof selectedHive.weight === 'number' || typeof selectedHive.latestWeight === 'number')) {
+          if (
+            list.length === 0 &&
+            (typeof selectedHive.weight === 'number' || typeof selectedHive.latestWeight === 'number')
+          ) {
             setSelectedHiveReadings([
               {
                 weight: selectedHive.weight ?? selectedHive.latestWeight,
@@ -73,14 +99,19 @@ export function ApiaryPage({
           } else {
             setSelectedHiveReadings(list);
           }
+        },
+        50
+      );
+
+      return () => {
+        isMounted = false;
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
         }
-      });
+      };
     } else {
       setSelectedHiveReadings([]);
     }
-    return () => {
-      isMounted = false;
-    };
   }, [selectedHive?.id, user?.uid]);
 
   // Modal Visibilities

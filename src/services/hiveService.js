@@ -8,6 +8,7 @@ import {
   deleteDoc,
   query,
   where,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -96,6 +97,67 @@ export async function getUserHives(uid) {
   }
 
   return localHives;
+}
+
+/**
+ * Real-Time Hive Subscription
+ * Attaches a Firestore onSnapshot listener for the authenticated user's hives.
+ * Emits instant updates when incoming ESP32 telemetry updates parent documents.
+ */
+export function subscribeUserHives(uid, onUpdate, onError) {
+  if (!uid) {
+    return () => {};
+  }
+
+  // 1. Emit local cache immediately (0ms) to ensure smooth startup
+  getLocalHives(uid).then((cached) => {
+    if (cached && cached.length > 0) {
+      onUpdate(cached);
+    }
+  });
+
+  // 2. Attach real-time snapshot listener
+  try {
+    const hivesRef = collection(db, 'hives');
+    const q = query(hivesRef, where('ownerUid', '==', uid));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const hives = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          }));
+
+          const sorted = hives.sort((a, b) => {
+            const timeA = a.createdAt?.toMillis
+              ? a.createdAt.toMillis()
+              : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime());
+            const timeB = b.createdAt?.toMillis
+              ? b.createdAt.toMillis()
+              : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime());
+            return timeB - timeA;
+          });
+
+          saveLocalHives(uid, sorted);
+          onUpdate(sorted);
+        } else {
+          saveLocalHives(uid, []);
+          onUpdate([]);
+        }
+      },
+      (err) => {
+        console.log('[HiveService] Real-time hives subscription notice:', err?.message);
+        if (onError) onError(err);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.log('[HiveService] Failed to establish hives listener:', err?.message);
+    return () => {};
+  }
 }
 
 export async function getHiveById(hiveId, uid) {
@@ -216,6 +278,7 @@ export async function deleteHive(hiveId, uid) {
 
 export default {
   getUserHives,
+  subscribeUserHives,
   getHiveById,
   createHive,
   updateHive,

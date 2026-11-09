@@ -7,6 +7,7 @@ import {
   query,
   orderBy,
   limit,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -54,7 +55,16 @@ export function determineSensorConnectionStatus(hive, latestReading) {
     };
   }
 
-  if (!latestReading) {
+  // Derive reading from latestReading or parent hive document timestamps
+  const effectiveReading =
+    latestReading ||
+    (hive?.lastReadingAt
+      ? { recordedAt: hive.lastReadingAt }
+      : (typeof hive?.weight === 'number' || typeof hive?.temperature === 'number')
+      ? { recordedAt: hive.updatedAt || hive.lastPingAt }
+      : null);
+
+  if (!effectiveReading) {
     return {
       code: 'no_data',
       label: 'Awaiting first reading',
@@ -67,12 +77,12 @@ export function determineSensorConnectionStatus(hive, latestReading) {
 
   // Calculate age of latest reading
   let readingTime = null;
-  if (latestReading.recordedAt?.toMillis) {
-    readingTime = latestReading.recordedAt.toMillis();
-  } else if (latestReading.recordedAt?.seconds) {
-    readingTime = latestReading.recordedAt.seconds * 1000;
-  } else if (latestReading.recordedAt) {
-    readingTime = new Date(latestReading.recordedAt).getTime();
+  if (effectiveReading.recordedAt?.toMillis) {
+    readingTime = effectiveReading.recordedAt.toMillis();
+  } else if (effectiveReading.recordedAt?.seconds) {
+    readingTime = effectiveReading.recordedAt.seconds * 1000;
+  } else if (effectiveReading.recordedAt) {
+    readingTime = new Date(effectiveReading.recordedAt).getTime();
   }
 
   if (!readingTime || isNaN(readingTime)) {
@@ -206,10 +216,62 @@ export async function getLatestHiveReading(hiveId, uid) {
   return recent.length > 0 ? recent[0] : null;
 }
 
+/**
+ * Real-Time Hive Readings Subscription
+ * Attaches a Firestore onSnapshot listener to the specific colony's readings subcollection.
+ * Allows HiveWeightTrendChart to update live without reloading the screen.
+ */
+export function subscribeRecentHiveReadings(hiveId, uid, onUpdate, limitCount = 50, onError) {
+  if (!hiveId || !uid) return () => {};
+
+  // 1. Instantly emit local cache (0ms)
+  getLocalReadings(hiveId).then((cached) => {
+    if (cached && cached.length > 0) {
+      onUpdate(cached);
+    }
+  });
+
+  // 2. Attach real-time snapshot listener
+  try {
+    const readingsRef = collection(db, 'hives', hiveId, 'readings');
+    const q = query(
+      readingsRef,
+      orderBy('recordedAt', 'desc'),
+      limit(limitCount)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const remote = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          }));
+          saveLocalReadings(hiveId, remote);
+          onUpdate(remote);
+        } else {
+          onUpdate([]);
+        }
+      },
+      (err) => {
+        console.log('[sensorService] Real-time readings subscription notice:', err?.message);
+        if (onError) onError(err);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.log('[sensorService] Failed to establish readings listener:', err?.message);
+    return () => {};
+  }
+}
+
 export default {
   addHiveReading,
   getRecentHiveReadings,
   getLatestHiveReading,
+  subscribeRecentHiveReadings,
   determineSensorConnectionStatus,
 };
 

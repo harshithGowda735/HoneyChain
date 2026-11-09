@@ -191,11 +191,26 @@ export function HomePage({
             <View
               style={[
                 styles.liveDot,
-                { backgroundColor: stats?.hasSensorReadings ? colors.status.healthy.indicator : colors.textMuted },
+                {
+                  backgroundColor:
+                    stats?.telemetryStatus === 'live'
+                      ? colors.status.healthy.indicator
+                      : stats?.telemetryStatus === 'stale'
+                      ? (colors.status.attention?.indicator || '#B45309')
+                      : stats?.telemetryStatus === 'awaiting_first_ping'
+                      ? '#E87522'
+                      : colors.textMuted,
+                },
               ]}
             />
             <Text style={styles.liveIndicatorText}>
-              {stats?.hasSensorReadings ? t('liveTelemetry') : t('sensorNotConnected')}
+              {stats?.telemetryStatus === 'live'
+                ? t('liveTelemetry')
+                : stats?.telemetryStatus === 'stale'
+                ? 'Stale (>24h)'
+                : stats?.telemetryStatus === 'awaiting_first_ping'
+                ? 'Awaiting Ping'
+                : t('sensorNotConnected')}
             </Text>
           </View>
         </View>

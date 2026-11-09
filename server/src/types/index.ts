@@ -108,3 +108,27 @@ export interface SupportCallbackRequest {
   reason: string;
   status: 'open' | 'in_progress' | 'resolved';
 }
+
+export interface IngestTelemetryPayload {
+  deviceId: string;
+  temperature: number;
+  weight: number;
+  timestamp?: string | number | Date;
+  humidity?: number;
+  batteryLevel?: number;
+}
+
+export interface IngestTelemetryResult {
+  success: boolean;
+  message: string;
+  hiveId: string;
+  hiveName: string;
+  readingId: string;
+  recordedAt: string;
+  metrics: {
+    temperature: number;
+    weight: number;
+    humidity?: number;
+    batteryLevel?: number;
+  };
+}

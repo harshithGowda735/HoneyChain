@@ -7,7 +7,7 @@
  */
 
 export const API_CONFIG = {
-  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
+  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001',
   TIMEOUT_MS: 10000,
   STATUS: 'V1_FIRESTORE_ACTIVE',
 };

@@ -42,6 +42,7 @@ export const config = {
   maxAudioSizeBytes: 15 * 1024 * 1024, // 15MB
   topKRetrieval: 4,
   allowMock: process.env.ALLOW_MOCK === 'true',
+  esp32ApiKey: process.env.ESP32_API_KEY || '',
 };
 
 export function validateStartupConfig(): void {
@@ -59,6 +60,7 @@ export function validateStartupConfig(): void {
   console.log(`Voices:               kn-IN-SapnaNeural | hi-IN-SwaraNeural | en-IN-NeerjaNeural`);
   console.log(`Knowledge Base:       ${config.knowledgeDir}`);
   console.log(`Allow Mock Fallback:  ${config.allowMock}`);
+  console.log(`ESP32 Ingest Key:     ${config.esp32ApiKey ? 'configured' : 'NOT SET'}`);
   console.log('======================================================\n');
 
   if (missingKeys.length > 0) {

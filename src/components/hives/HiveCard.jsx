@@ -7,6 +7,7 @@ import AppCard from '../common/AppCard';
 import StatusBadge from '../common/StatusBadge';
 import { formatTemperature, formatHumidity, formatWeight } from '../../utils/formatSensorValue';
 import { formatDate } from '../../utils/formatDate';
+import { determineSensorConnectionStatus } from '../../services/sensorService';
 
 export function HiveCard({ hive, onPress }) {
   if (!hive) return null;
@@ -15,6 +16,7 @@ export function HiveCard({ hive, onPress }) {
   const hasHumidity = typeof hive.humidity === 'number';
   const hasWeight = typeof hive.weight === 'number';
   const hasBattery = typeof hive.battery === 'number';
+  const connStatus = determineSensorConnectionStatus(hive);
 
   return (
     <AppCard
@@ -97,15 +99,23 @@ export function HiveCard({ hive, onPress }) {
             </>
           ) : (
             <>
-              <Ionicons name="radio-outline" size={14} color={colors.textMuted} />
-              <Text style={styles.footerMeta}>No sensor connected</Text>
+              <Ionicons
+                name={connStatus.isConnected ? 'radio' : 'radio-outline'}
+                size={14}
+                color={connStatus.badgeColor}
+              />
+              <Text style={[styles.footerMeta, { color: connStatus.badgeColor }]}>
+                {connStatus.label}
+              </Text>
             </>
           )}
         </View>
 
         <View style={styles.cardStatusMeta}>
           <Text style={styles.cardStatusText}>
-            {typeof hive.lastReading === 'string'
+            {hive.lastReadingAt
+              ? formatDate(hive.lastReadingAt)
+              : typeof hive.lastReading === 'string'
               ? hive.lastReading
               : hive.lastReading
               ? formatDate(hive.lastReading)

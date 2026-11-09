@@ -8,6 +8,14 @@ import { createTTSProvider } from './providers/tts';
 import { recordSupportCallback } from './services/supportLogger';
 import { loadKnowledgeIndex } from './rag/retrieve';
 import { SupportedLanguage } from './types';
+import {
+  validateDeviceApiKey,
+  processTelemetryIngestion,
+  TelemetryValidationError,
+  DeviceNotFoundError,
+  DuplicateReadingError,
+  OutOfOrderReadingError,
+} from './services/telemetryIngest';
 
 // Fail loudly at startup if required keys are missing (unless ALLOW_MOCK=true)
 validateStartupConfig();
@@ -28,12 +36,13 @@ const handleHealth = async (_req: Request, res: Response): Promise<void> => {
     const index = await loadKnowledgeIndex();
     res.json({
       status: 'healthy',
-      service: 'HoneyChain AI Voice Support Backend',
+      service: 'HoneyChain AI Voice & IoT Backend',
       knowledgeChunksIndexed: index.length,
       groqConfigured: Boolean(config.groqApiKey),
       geminiConfigured: Boolean(config.geminiApiKey),
       geminiModel: config.geminiModel,
       ttsEngine: 'Microsoft-Edge-TTS',
+      iotTelemetryConfigured: Boolean(config.esp32ApiKey),
       timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
@@ -160,6 +169,50 @@ app.post(
       });
     } catch (err: any) {
       next(err);
+    }
+  }
+);
+
+// 5. Secure ESP32 Hardware Telemetry Ingestion Endpoint
+app.post(
+  '/api/telemetry/reading',
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Authenticate via X-Device-Key header using timing-safe comparison
+      const deviceKey = (req.header('X-Device-Key') || req.header('x-device-key'))?.trim();
+      if (!validateDeviceApiKey(deviceKey)) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Invalid or missing X-Device-Key header.',
+        });
+        return;
+      }
+
+      const result = await processTelemetryIngestion(req.body);
+      res.status(201).json(result);
+    } catch (err: any) {
+      if (err instanceof TelemetryValidationError) {
+        res.status(400).json({ success: false, error: err.message });
+        return;
+      }
+      if (err instanceof DeviceNotFoundError) {
+        res.status(404).json({ success: false, error: err.message });
+        return;
+      }
+      if (err instanceof DuplicateReadingError) {
+        res.status(409).json({ success: false, error: err.message });
+        return;
+      }
+      if (err instanceof OutOfOrderReadingError) {
+        res.status(422).json({ success: false, error: err.message });
+        return;
+      }
+
+      console.error('[Telemetry Ingest Error]', err?.message || err);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error while processing telemetry reading.',
+      });
     }
   }
 );

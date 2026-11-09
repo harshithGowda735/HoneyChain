@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getUserHives,
+  subscribeUserHives,
   getLocalHives,
   createHive as createHiveDoc,
   updateHive as updateHiveDoc,
@@ -47,8 +48,10 @@ export function useHiveData() {
   const [batchSearchQuery, setBatchSearchQuery] = useState('');
   const [selectedBatchId, setSelectedBatchId] = useState(null);
 
-  // Fetch all user-owned data with instant local hydration + non-blocking background sync
-  const loadUserData = useCallback(async () => {
+  // Real-time Firestore subscription + local hydration lifecycle
+  useEffect(() => {
+    let isMounted = true;
+
     if (!user?.uid) {
       setHives([]);
       setBatches([]);
@@ -58,42 +61,79 @@ export function useHiveData() {
       return;
     }
 
-    // 1. Immediately hydrate from local storage (0ms - prevents app reload freezing!)
-    const [localH, localB] = await Promise.all([
+    // 1. Instant local hydration (0ms - prevents UI stutter)
+    Promise.all([
       getLocalHives(user.uid),
       getLocalBatches(user.uid),
-    ]);
-    if (localH.length > 0 || localB.length > 0) {
-      setHives(localH);
-      setBatches(localB);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
+    ]).then(([localH, localB]) => {
+      if (!isMounted) return;
+      if ((localH && localH.length > 0) || (localB && localB.length > 0)) {
+        if (localH) setHives(localH);
+        if (localB) setBatches(localB);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+    });
 
-    // 2. Fetch fresh remote data in background with fast timeout
+    // 2. Fetch one-time secondary collections (batches & activities)
+    Promise.all([
+      getUserBatches(user.uid),
+      getUserActivities(user.uid, 15),
+    ])
+      .then(([batchesData, activitiesData]) => {
+        if (!isMounted) return;
+        if (batchesData && batchesData.length > 0) setBatches(batchesData);
+        setActivities(activitiesData || []);
+      })
+      .catch((err) => {
+        console.log('[useHiveData] Batches/Activities background sync notice:', err?.message);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    // 3. Attach real-time Firestore onSnapshot listener for Hives
+    // This ensures hardware readings ingested into parent documents update the dashboard automatically.
+    const unsubscribeHives = subscribeUserHives(
+      user.uid,
+      (freshHives) => {
+        if (!isMounted) return;
+        setHives(freshHives);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        if (!isMounted) return;
+        console.log('[useHiveData] Real-time hives listener error:', err?.message);
+        setError('Real-time connection interrupted. Using local cache.');
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      if (typeof unsubscribeHives === 'function') {
+        unsubscribeHives();
+      }
+    };
+  }, [user?.uid]);
+
+  // Manual pull-to-refresh handler
+  const refreshData = useCallback(async () => {
+    if (!user?.uid) return;
     try {
-      const [hivesData, batchesData, activitiesData] = await Promise.all([
+      const [freshHives, freshBatches, freshActivities] = await Promise.all([
         getUserHives(user.uid),
         getUserBatches(user.uid),
         getUserActivities(user.uid, 15),
       ]);
-
-      if (hivesData && hivesData.length > 0) setHives(hivesData);
-      if (batchesData && batchesData.length > 0) setBatches(batchesData);
-      setActivities(activitiesData || []);
+      if (freshHives) setHives(freshHives);
+      if (freshBatches) setBatches(freshBatches);
+      if (freshActivities) setActivities(freshActivities);
     } catch (err) {
-      console.log('[useHiveData] Background sync finished:', err?.message || err);
-    } finally {
-      setLoading(false);
+      console.log('[useHiveData] Manual refresh notice:', err?.message);
     }
   }, [user?.uid]);
-
-  // Load data whenever authenticated user changes
-  useEffect(() => {
-    loadUserData();
-  }, [loadUserData]);
 
   // Aggregated Apiary Statistics computed strictly from real Firestore data
   const stats = useMemo(() => {
@@ -128,6 +168,47 @@ export function useHiveData() {
       .reduce((acc, b) => acc + (Number(b.quantity) || 0), 0)
       .toFixed(1);
 
+    // Evaluate hardware freshness: <24h is live, >24h is stale
+    const pairedHives = hives.filter((h) => Boolean(h.sensorDeviceId || h.deviceId));
+    const now = Date.now();
+    let hasLiveReading = false;
+    let hasStaleReading = false;
+
+    pairedHives.forEach((h) => {
+      let rTime = null;
+      if (h.lastReadingAt?.toMillis) {
+        rTime = h.lastReadingAt.toMillis();
+      } else if (h.lastReadingAt?.seconds) {
+        rTime = h.lastReadingAt.seconds * 1000;
+      } else if (h.lastReadingAt) {
+        rTime = new Date(h.lastReadingAt).getTime();
+      } else if (h.updatedAt?.toMillis) {
+        rTime = h.updatedAt.toMillis();
+      } else if (h.updatedAt?.seconds) {
+        rTime = h.updatedAt.seconds * 1000;
+      } else if (h.updatedAt) {
+        rTime = new Date(h.updatedAt).getTime();
+      }
+
+      if (rTime && !isNaN(rTime) && (typeof h.weight === 'number' || typeof h.temperature === 'number')) {
+        const ageHours = (now - rTime) / (1000 * 60 * 60);
+        if (ageHours <= 24) {
+          hasLiveReading = true;
+        } else {
+          hasStaleReading = true;
+        }
+      }
+    });
+
+    let telemetryStatus = 'no_sensor'; // 'live' | 'stale' | 'awaiting_first_ping' | 'no_sensor'
+    if (hasLiveReading) {
+      telemetryStatus = 'live';
+    } else if (hasStaleReading) {
+      telemetryStatus = 'stale';
+    } else if (pairedHives.length > 0) {
+      telemetryStatus = 'awaiting_first_ping';
+    }
+
     return {
       totalHives: total,
       healthyHives: healthy,
@@ -140,6 +221,8 @@ export function useHiveData() {
       activeBatchesCount: batches.length,
       hasSensorReadings: hivesWithTemp.length > 0 || hivesWithHumidity.length > 0 || hivesWithWeight.length > 0,
       hasWeightReadings: hivesWithWeight.length > 0,
+      telemetryStatus,
+      pairedSensorsCount: pairedHives.length,
     };
   }, [hives, batches]);
 

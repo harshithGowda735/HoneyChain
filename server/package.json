@@ -8,6 +8,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "ingest": "ts-node src/rag/ingest.ts",
+    "test": "ts-node scripts/test-telemetry.ts",
+    "test:telemetry": "ts-node scripts/test-telemetry.ts",
     "test:audio": "ts-node scripts/test-audio.ts"
   },
   "dependencies": {
