@@ -16,6 +16,8 @@ import { QRScannerModal } from '../components/batches/QRScannerModal';
 import { PublicVerificationModal } from '../components/batches/PublicVerificationModal';
 import { RecordHarvestModal } from '../components/batches/RecordHarvestModal';
 import { QRCodeModal } from '../components/batches/QRCodeModal';
+import VoiceSupportButton from '../components/voice/VoiceSupportButton';
+import TalkToHoneyChain from '../pages/TalkToHoneyChain';
 
 export function AppNavigator() {
   const insets = useSafeAreaInsets();
@@ -27,6 +29,7 @@ export function AppNavigator() {
   // Harvest modal from Home screen
   const [recordHarvestVisible, setRecordHarvestVisible] = useState(false);
   const [createdBatchForQr, setCreatedBatchForQr] = useState(null);
+  const [voiceSupportVisible, setVoiceSupportVisible] = useState(false);
 
   // Shared Hive, Batch, and Activity State
   const hiveData = useHiveData();
@@ -215,6 +218,20 @@ export function AppNavigator() {
           setPublicVerifyCode(code);
         }}
       />
+
+      {/* Floating Talk to HoneyChain Voice Assistant Button */}
+      <VoiceSupportButton
+        onPress={() => setVoiceSupportVisible(true)}
+        bottomOffset={insets.bottom + 65}
+      />
+
+      {/* Talk to HoneyChain Modal Screen */}
+      {voiceSupportVisible && (
+        <TalkToHoneyChain
+          visible={voiceSupportVisible}
+          onClose={() => setVoiceSupportVisible(false)}
+        />
+      )}
     </View>
   );
 }

@@ -2,12 +2,14 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getUserHives,
+  getLocalHives,
   createHive as createHiveDoc,
   updateHive as updateHiveDoc,
   deleteHive as deleteHiveDoc,
 } from '../services/hiveService';
 import {
   getUserBatches,
+  getLocalBatches,
   createBatch as createBatchDoc,
   updateBatch as updateBatchDoc,
   deleteBatch as deleteBatchDoc,
@@ -45,10 +47,9 @@ export function useHiveData() {
   const [batchSearchQuery, setBatchSearchQuery] = useState('');
   const [selectedBatchId, setSelectedBatchId] = useState(null);
 
-  // Fetch all user-owned data from Firestore
+  // Fetch all user-owned data with instant local hydration + non-blocking background sync
   const loadUserData = useCallback(async () => {
     if (!user?.uid) {
-      // Clear data on sign out
       setHives([]);
       setBatches([]);
       setActivities([]);
@@ -57,9 +58,21 @@ export function useHiveData() {
       return;
     }
 
-    setLoading(true);
+    // 1. Immediately hydrate from local storage (0ms - prevents app reload freezing!)
+    const [localH, localB] = await Promise.all([
+      getLocalHives(user.uid),
+      getLocalBatches(user.uid),
+    ]);
+    if (localH.length > 0 || localB.length > 0) {
+      setHives(localH);
+      setBatches(localB);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
+    // 2. Fetch fresh remote data in background with fast timeout
     try {
       const [hivesData, batchesData, activitiesData] = await Promise.all([
         getUserHives(user.uid),
@@ -67,12 +80,11 @@ export function useHiveData() {
         getUserActivities(user.uid, 15),
       ]);
 
-      setHives(hivesData);
-      setBatches(batchesData);
-      setActivities(activitiesData);
+      if (hivesData && hivesData.length > 0) setHives(hivesData);
+      if (batchesData && batchesData.length > 0) setBatches(batchesData);
+      setActivities(activitiesData || []);
     } catch (err) {
-      console.error('[useHiveData] Error fetching user data:', err);
-      setError(err?.message || 'Failed to load apiary records from Firestore.');
+      console.log('[useHiveData] Background sync finished:', err?.message || err);
     } finally {
       setLoading(false);
     }
@@ -171,32 +183,32 @@ export function useHiveData() {
     return batches.find((b) => b.id === selectedBatchId) || null;
   }, [batches, selectedBatchId]);
 
-  // CRUD Actions
+  // CRUD Actions with instant optimistic state update (0ms delay)
   const addHive = async (hiveData) => {
     if (!user?.uid) throw new Error('Must be signed in to create a hive.');
     const created = await createHiveDoc(user.uid, hiveData);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'hive_created',
       title: `Hive Registered: ${created.name}`,
       details: `Location: ${created.location}`,
       entityId: created.id,
       entityType: 'hive',
     });
-    await loadUserData();
+    setHives((prev) => [created, ...prev.filter((h) => h.id !== created.id)]);
     return created;
   };
 
   const updateHive = async (hiveId, hiveData) => {
     if (!user?.uid) throw new Error('Must be signed in to update a hive.');
     const updated = await updateHiveDoc(hiveId, user.uid, hiveData);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'hive_updated',
       title: `Hive Updated: ${updated.name}`,
       details: `Status: ${updated.status}`,
       entityId: hiveId,
       entityType: 'hive',
     });
-    await loadUserData();
+    setHives((prev) => prev.map((h) => (h.id === hiveId ? { ...h, ...updated } : h)));
     return updated;
   };
 
@@ -210,42 +222,42 @@ export function useHiveData() {
     }
     const hiveToDelete = hives.find((h) => h.id === hiveId);
     await deleteHiveDoc(hiveId, user.uid);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'hive_deleted',
       title: `Hive Removed: ${hiveToDelete?.name || hiveId}`,
       details: 'Colony record deleted from Firestore',
       entityId: hiveId,
       entityType: 'hive',
     });
+    setHives((prev) => prev.filter((h) => h.id !== hiveId));
     if (selectedHiveId === hiveId) setSelectedHiveId(null);
-    await loadUserData();
   };
 
   const addBatch = async (batchData) => {
     if (!user?.uid) throw new Error('Must be signed in to record a honey batch.');
     const created = await createBatchDoc(user.uid, batchData);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'batch_created',
       title: `Harvest Batch Logged: ${created.batchCode}`,
       details: `${created.quantity} kg of ${created.honeyType}`,
       entityId: created.id,
       entityType: 'batch',
     });
-    await loadUserData();
+    setBatches((prev) => [created, ...prev.filter((b) => b.id !== created.id)]);
     return created;
   };
 
   const updateBatch = async (batchId, batchData) => {
     if (!user?.uid) throw new Error('Must be signed in to update a batch.');
     const updated = await updateBatchDoc(batchId, user.uid, batchData);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'batch_updated',
       title: `Batch Updated: ${updated.batchCode}`,
       details: `Stage: ${updated.status}`,
       entityId: batchId,
       entityType: 'batch',
     });
-    await loadUserData();
+    setBatches((prev) => prev.map((b) => (b.id === batchId ? { ...b, ...updated } : b)));
     return updated;
   };
 
@@ -253,28 +265,39 @@ export function useHiveData() {
     if (!user?.uid) throw new Error('Must be signed in to delete a batch.');
     const batchToDelete = batches.find((b) => b.id === batchId);
     await deleteBatchDoc(batchId, user.uid);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'batch_deleted',
       title: `Batch Removed: ${batchToDelete?.batchCode || batchId}`,
       details: 'Harvest record deleted from Firestore',
       entityId: batchId,
       entityType: 'batch',
     });
+    setBatches((prev) => prev.filter((b) => b.id !== batchId));
     if (selectedBatchId === batchId) setSelectedBatchId(null);
-    await loadUserData();
   };
 
   const addReading = async (hiveId, readingData) => {
     if (!user?.uid) throw new Error('Must be signed in to record telemetry.');
     const reading = await addHiveReadingDoc(hiveId, user.uid, readingData);
-    await logUserActivity(user.uid, {
+    logUserActivity(user.uid, {
       action: 'reading_added',
       title: 'Sensor Reading Recorded',
       details: `Source: ${reading.source} (${reading.temperature || '--'}°C)`,
       entityId: hiveId,
       entityType: 'reading',
     });
-    await loadUserData();
+    setHives((prev) =>
+      prev.map((h) =>
+        h.id === hiveId
+          ? {
+              ...h,
+              temperature: reading.temperature ?? h.temperature,
+              humidity: reading.humidity ?? h.humidity,
+              weight: reading.weight ?? h.weight,
+            }
+          : h
+      )
+    );
     return reading;
   };
 

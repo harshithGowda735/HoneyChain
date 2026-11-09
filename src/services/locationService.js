@@ -20,7 +20,7 @@ export const INDIAN_STATES = [
 ];
 
 /**
- * Detects current device / customer location using GPS and reverse-geocoding.
+ * Detects current device / beekeeper location using GPS and reverse-geocoding.
  * Returns { state, district, city, formatted, coords }
  */
 export async function detectCurrentLocation(silent = false) {

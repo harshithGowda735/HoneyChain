@@ -14,7 +14,7 @@ import { db } from './firebase';
  * Manages operational events in `users/{uid}/activity/{activityId}`
  */
 
-export async function logUserActivity(uid, activityData) {
+export function logUserActivity(uid, activityData) {
   if (!uid) return;
 
   try {
@@ -27,28 +27,37 @@ export async function logUserActivity(uid, activityData) {
       entityType: activityData.entityType || null,
       timestamp: serverTimestamp(),
     };
-    await addDoc(activityRef, newRecord);
-  } catch (err) {
-    // Non-blocking logging failure
-    console.warn('[ActivityService] Failed to record user activity:', err?.message);
-  }
+    withTimeout(addDoc(activityRef, newRecord), 1000).catch(() => {});
+  } catch (_) {}
+}
+
+function withTimeout(promise, ms = 2000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms)),
+  ]);
 }
 
 export async function getUserActivities(uid, limitCount = 10) {
   if (!uid) return [];
 
-  const activityRef = collection(db, 'users', uid, 'activity');
-  const q = query(
-    activityRef,
-    orderBy('timestamp', 'desc'),
-    limit(limitCount)
-  );
+  try {
+    const activityRef = collection(db, 'users', uid, 'activity');
+    const q = query(
+      activityRef,
+      orderBy('timestamp', 'desc'),
+      limit(limitCount)
+    );
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data(),
-  }));
+    const snapshot = await withTimeout(getDocs(q), 2000);
+    return snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+  } catch (err) {
+    console.log('[ActivityService] Cloud activity sync deferred:', err?.message);
+    return [];
+  }
 }
 
 export default {

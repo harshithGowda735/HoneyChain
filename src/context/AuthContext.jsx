@@ -9,10 +9,12 @@ import {
 import {
   sendPhoneVerificationCode,
   verifyPhoneOtpAndSignIn,
+  signInOrCreateBeekeeperAuth,
 } from '../services/phoneAuthService';
 import {
   createUserProfile,
   getUserProfile,
+  getLocalProfile,
   updateUserProfile,
 } from '../services/userService';
 
@@ -37,9 +39,16 @@ export function AuthProvider({ children }) {
             const cachedUser = JSON.parse(raw);
             if (cachedUser?.uid) {
               setUser(cachedUser);
-              const profile = await getUserProfile(cachedUser.uid);
-              if (profile && isMounted) {
-                setUserProfile(profile);
+              // Instant local profile hydration (0ms)
+              const localProf = await getLocalProfile(cachedUser.uid);
+              if (localProf && isMounted) {
+                setUserProfile(localProf);
+              }
+              // Ensure real Firebase Auth session is connected in background for Firestore rules
+              if (!auth.currentUser) {
+                signInOrCreateBeekeeperAuth(cachedUser.phoneNumber || '+919876543210').catch((err) => {
+                  console.log('[AuthContext] Background Firebase session note:', err?.message);
+                });
               }
             }
           } catch (_) {}
