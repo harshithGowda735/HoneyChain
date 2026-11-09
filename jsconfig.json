@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react-native",
+    "moduleResolution": "node",
+    "checkJs": false
+  },
+  "exclude": ["node_modules", "server", "dist", ".expo"]
+}
+

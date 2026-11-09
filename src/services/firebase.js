@@ -8,7 +8,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, setLogLevel } from 'firebase/firestore';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -46,8 +46,24 @@ try {
 
 export const auth = authInstance;
 
-// 3. Initialize Firestore Database instance
-export const db = getFirestore(app);
+// Silence internal transport retry warnings during offline or reconnect states
+try {
+  setLogLevel('error');
+} catch (_) {}
+
+// 3. Initialize Firestore Database instance with long-polling for React Native
+let dbInstance = global.__honeychain_firestore_db__;
+if (!dbInstance) {
+  try {
+    dbInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    });
+    global.__honeychain_firestore_db__ = dbInstance;
+  } catch (_) {
+    dbInstance = getFirestore(app);
+  }
+}
+export const db = dbInstance;
 
 // 4. Status Metadata
 export const FIREBASE_STATUS = {

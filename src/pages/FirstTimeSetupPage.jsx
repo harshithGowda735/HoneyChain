@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -43,7 +43,7 @@ export function FirstTimeSetupPage({ onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Automatically detect customer location upon loading
+  // Automatically detect beekeeper location upon loading
   useEffect(() => {
     handleDetectLocation(true);
   }, []);

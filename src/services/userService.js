@@ -10,9 +10,26 @@ import { db } from './firebase';
 
 const PROFILE_STORAGE_KEY_PREFIX = '@honeychain_user_profile_';
 
-async function getLocalProfile(uid) {
+function withTimeout(promise, ms = 2000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms)),
+  ]);
+}
+
+export async function getLocalProfile(uid) {
   try {
-    const raw = await AsyncStorage.getItem(`${PROFILE_STORAGE_KEY_PREFIX}${uid}`);
+    let raw = await AsyncStorage.getItem(`${PROFILE_STORAGE_KEY_PREFIX}${uid}`);
+    if (!raw && uid && uid !== 'beekeeper_demo') {
+      const demoRaw = await AsyncStorage.getItem(`${PROFILE_STORAGE_KEY_PREFIX}beekeeper_demo`);
+      if (demoRaw) {
+        try {
+          const prof = { ...JSON.parse(demoRaw), id: uid, uid };
+          await AsyncStorage.setItem(`${PROFILE_STORAGE_KEY_PREFIX}${uid}`, JSON.stringify(prof));
+          return prof;
+        } catch (_) {}
+      }
+    }
     return raw ? JSON.parse(raw) : null;
   } catch (_) {
     return null;
@@ -40,10 +57,10 @@ export async function getUserProfile(uid) {
   // 1. Check local cache first for instant rendering
   const localProfile = await getLocalProfile(uid);
 
-  // 2. Attempt Firestore sync
+  // 2. Attempt Firestore sync with fast timeout
   try {
     const userDocRef = doc(db, 'users', uid);
-    const snap = await getDoc(userDocRef);
+    const snap = await withTimeout(getDoc(userDocRef), 2000);
     if (snap.exists()) {
       const remoteData = { id: snap.id, ...snap.data() };
       await saveLocalProfile(uid, remoteData);
