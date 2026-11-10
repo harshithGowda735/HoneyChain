@@ -9,6 +9,7 @@ import {
   DeviceNotFoundError,
   DuplicateReadingError,
   OutOfOrderReadingError,
+  AmbiguousDeviceMappingError,
 } from '../src/services/telemetryIngest';
 
 // Configure test ESP32 API Key
@@ -54,9 +55,10 @@ function createMockFirestore(initialState?: {
                 return {
                   async get() {
                     const matched = hives.filter((h) => h.data[field] === value);
+                    const sliced = _n ? matched.slice(0, _n) : matched;
                     return {
-                      empty: matched.length === 0,
-                      docs: matched.map((m) => ({
+                      empty: sliced.length === 0,
+                      docs: sliced.map((m) => ({
                         id: m.id,
                         data: () => m.data,
                       })),
@@ -261,6 +263,22 @@ async function main() {
     assert.strictEqual(res.recordedAt.toISOString(), timestampStr);
   });
 
+  await testScenario('Accepts exact ESP32 firmware generated payload format', () => {
+    const rawEsp32Json = JSON.stringify({
+      deviceId: 'HC-ESP32-001',
+      temperature: 34.2,
+      weight: 24.5,
+      batteryLevel: 92,
+      timestamp: new Date(Date.now() - 30000).toISOString(),
+    });
+    const parsed = JSON.parse(rawEsp32Json);
+    const res = validateTelemetryPayload(parsed);
+    assert.strictEqual(res.deviceId, 'HC-ESP32-001');
+    assert.strictEqual(res.temperature, 34.2);
+    assert.strictEqual(res.weight, 24.5);
+    assert.strictEqual(res.batteryLevel, 92);
+  });
+
   // 3. Firestore Ingestion Logic Tests
   console.log('\n--- 3. Firestore Ingestion & Device Pairing Logic ---');
 
@@ -277,6 +295,32 @@ async function main() {
         );
       },
       (err: any) => err instanceof DeviceNotFoundError
+    );
+  });
+
+  await testScenario('Rejects ambiguous device mapping when multiple hives share sensorDeviceId (409)', async () => {
+    const mockDb = createMockFirestore({
+      hives: [
+        { id: 'hive_1', data: { name: 'Hive 1', sensorDeviceId: 'ESP32-DUPLICATE' } },
+        { id: 'hive_2', data: { name: 'Hive 2', sensorDeviceId: 'ESP32-DUPLICATE' } },
+      ],
+      readings: {},
+    });
+
+    await assert.rejects(
+      async () => {
+        await processTelemetryIngestion(
+          { deviceId: 'ESP32-DUPLICATE', temperature: 34.5, weight: 25.2 },
+          mockDb
+        );
+      },
+      (err: any) => {
+        assert.ok(err instanceof AmbiguousDeviceMappingError);
+        assert.strictEqual(err.statusCode, 409);
+        assert.ok(err.message.includes('hive_1'));
+        assert.ok(err.message.includes('hive_2'));
+        return true;
+      }
     );
   });
 

@@ -15,6 +15,7 @@ import {
   DeviceNotFoundError,
   DuplicateReadingError,
   OutOfOrderReadingError,
+  AmbiguousDeviceMappingError,
 } from './services/telemetryIngest';
 
 // Fail loudly at startup if required keys are missing (unless ALLOW_MOCK=true)
@@ -200,6 +201,10 @@ app.post(
         return;
       }
       if (err instanceof DuplicateReadingError) {
+        res.status(409).json({ success: false, error: err.message });
+        return;
+      }
+      if (err instanceof AmbiguousDeviceMappingError) {
         res.status(409).json({ success: false, error: err.message });
         return;
       }

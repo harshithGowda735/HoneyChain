@@ -16,6 +16,7 @@ export function HiveCard({ hive, onPress }) {
   const hasHumidity = typeof hive.humidity === 'number';
   const hasWeight = typeof hive.weight === 'number';
   const hasBattery = typeof hive.battery === 'number';
+  const deviceId = hive.sensorDeviceId || hive.deviceId;
   const connStatus = determineSensorConnectionStatus(hive);
 
   return (
@@ -42,6 +43,14 @@ export function HiveCard({ hive, onPress }) {
               <Text style={styles.yardText} numberOfLines={1}>
                 {hive.location || hive.yard || 'Apiary Yard'}
               </Text>
+              {deviceId ? (
+                <View style={styles.devicePill}>
+                  <Ionicons name="hardware-chip-outline" size={10} color={colors.textSecondary} />
+                  <Text style={styles.devicePillText} numberOfLines={1}>
+                    {deviceId}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -85,29 +94,20 @@ export function HiveCard({ hive, onPress }) {
         </View>
       </View>
 
-      {/* Card Footer: Battery & Reading time */}
+      {/* Card Footer: Hardware Status & Reading time */}
       <View style={styles.footerRow}>
-        <View style={styles.batteryRow}>
-          {hasBattery ? (
-            <>
-              <Ionicons
-                name={hive.battery > 50 ? 'battery-charging-outline' : 'battery-dead-outline'}
-                size={14}
-                color={hive.battery > 50 ? colors.status.healthy.indicator : colors.status.critical.indicator}
-              />
-              <Text style={styles.footerMeta}>Node {hive.battery}%</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons
-                name={connStatus.isConnected ? 'radio' : 'radio-outline'}
-                size={14}
-                color={connStatus.badgeColor}
-              />
-              <Text style={[styles.footerMeta, { color: connStatus.badgeColor }]}>
-                {connStatus.label}
-              </Text>
-            </>
+        <View style={styles.statusRow}>
+          <View
+            style={[
+              styles.statusIndicatorDot,
+              { backgroundColor: connStatus.badgeColor },
+            ]}
+          />
+          <Text style={[styles.footerStatusText, { color: connStatus.badgeColor }]}>
+            {connStatus.label}
+          </Text>
+          {hasBattery && (
+            <Text style={styles.batteryMeta}>• {hive.battery}%</Text>
           )}
         </View>
 
@@ -174,6 +174,24 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 1,
   },
+  devicePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: borderRadius.round,
+    gap: 3,
+    marginLeft: 4,
+  },
+  devicePillText: {
+    fontSize: 9,
+    fontWeight: typography.weight.medium,
+    color: colors.textSecondary,
+    maxWidth: 90,
+  },
   telemetryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -209,12 +227,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
-  batteryRow: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
+    flex: 1,
+    marginRight: spacing.xs,
   },
-  footerMeta: {
+  statusIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  footerStatusText: {
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.medium,
+  },
+  batteryMeta: {
     fontSize: typography.size.xs - 1,
     color: colors.textSecondary,
     fontWeight: typography.weight.medium,

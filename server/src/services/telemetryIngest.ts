@@ -41,6 +41,16 @@ export class DuplicateReadingError extends Error {
   }
 }
 
+export class AmbiguousDeviceMappingError extends Error {
+  public readonly statusCode = 409;
+  constructor(deviceId: string, hiveIds: string[]) {
+    super(
+      `Ambiguous device mapping: Device '${deviceId}' is associated with multiple hives (${hiveIds.join(', ')}). Each hardware device must be uniquely paired.`
+    );
+    this.name = 'AmbiguousDeviceMappingError';
+  }
+}
+
 /**
  * Validates the X-Device-Key header using timing-safe comparison.
  * Never logs the API key or leaks length differences via early exit timing.
@@ -185,24 +195,38 @@ export async function processTelemetryIngestion(
   // 1. Strict Payload Validation
   const validated = validateTelemetryPayload(payload);
 
-  // 2. Resolve Hive through registered sensorDeviceId
+  // 2. Resolve Hive through registered sensorDeviceId with ambiguity protection
   const hivesSnap = await db
     .collection('hives')
     .where('sensorDeviceId', '==', validated.deviceId)
-    .limit(1)
+    .limit(2)
     .get();
+
+  if (hivesSnap.docs.length > 1) {
+    throw new AmbiguousDeviceMappingError(
+      validated.deviceId,
+      hivesSnap.docs.map((d) => d.id)
+    );
+  }
 
   let targetHiveDoc: admin.firestore.DocumentSnapshot | null = null;
 
   if (!hivesSnap.empty) {
     targetHiveDoc = hivesSnap.docs[0];
   } else {
-    // Check fallback deviceId field
+    // Check fallback deviceId field with ambiguity protection
     const fallbackSnap = await db
       .collection('hives')
       .where('deviceId', '==', validated.deviceId)
-      .limit(1)
+      .limit(2)
       .get();
+
+    if (fallbackSnap.docs.length > 1) {
+      throw new AmbiguousDeviceMappingError(
+        validated.deviceId,
+        fallbackSnap.docs.map((d) => d.id)
+      );
+    }
 
     if (!fallbackSnap.empty) {
       targetHiveDoc = fallbackSnap.docs[0];

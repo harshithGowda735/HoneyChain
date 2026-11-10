@@ -181,6 +181,33 @@ export function ApiaryPage({
       return;
     }
 
+    const trimmedDeviceId = formDeviceId.trim() || null;
+
+    // Validate sensorDeviceId format if provided
+    if (trimmedDeviceId) {
+      const validIdRegex = /^[a-zA-Z0-9:_-]{2,64}$/;
+      if (!validIdRegex.test(trimmedDeviceId)) {
+        setHiveFormError(
+          'Sensor Device ID must be 2–64 characters and contain only letters, numbers, hyphens, underscores, or colons (e.g. ESP32-HIVE-01 or MAC address).'
+        );
+        return;
+      }
+
+      // Safeguard: Check for duplicate device ID among beekeeper's existing hives
+      const duplicateHive = hives.find(
+        (h) =>
+          h.id !== editingHiveId &&
+          ((h.sensorDeviceId && h.sensorDeviceId.toLowerCase() === trimmedDeviceId.toLowerCase()) ||
+            (h.deviceId && h.deviceId.toLowerCase() === trimmedDeviceId.toLowerCase()))
+      );
+      if (duplicateHive) {
+        setHiveFormError(
+          `Device ID "${trimmedDeviceId}" is already paired with "${duplicateHive.name || 'another hive'}". Unpair it from that hive first before reassigning.`
+        );
+        return;
+      }
+    }
+
     setIsSubmittingHive(true);
     setHiveFormError('');
 
@@ -192,7 +219,7 @@ export function ApiaryPage({
         queenStatus: formQueenStatus,
         framesCount: Number(formFramesCount) || 10,
         honeySuperCount: Number(formSupersCount) || 1,
-        sensorDeviceId: formDeviceId.trim() || null,
+        sensorDeviceId: trimmedDeviceId,
         notes: formNotes.trim(),
       };
 
@@ -676,6 +703,121 @@ export function ApiaryPage({
                     </View>
                   </View>
 
+                  {/* Hardware Node & Sensor Pairing Card */}
+                  {(() => {
+                    const hiveConnStatus = determineSensorConnectionStatus(selectedHive);
+                    const hiveDeviceId = selectedHive.sensorDeviceId || selectedHive.deviceId;
+
+                    return (
+                      <View style={styles.hardwareCard}>
+                        <View style={styles.hardwareHeader}>
+                          <View style={styles.hardwareTitleGroup}>
+                            <View
+                              style={[
+                                styles.hardwareIconBox,
+                                {
+                                  backgroundColor: hiveDeviceId ? colors.primarySoft : colors.surfaceSubtle,
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name="hardware-chip-outline"
+                                size={18}
+                                color={hiveDeviceId ? colors.primary : colors.textMuted}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.hardwareCardTitle} numberOfLines={1}>
+                                {hiveDeviceId ? hiveDeviceId : 'No Hardware Paired'}
+                              </Text>
+                              <Text style={styles.hardwareCardSub}>
+                                ESP32 + HX711 Telemetry Node
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View
+                            style={[
+                              styles.hardwareStatusBadge,
+                              { backgroundColor: hiveConnStatus.badgeBg },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.hardwareStatusDot,
+                                { backgroundColor: hiveConnStatus.badgeColor },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.hardwareStatusText,
+                                { color: hiveConnStatus.badgeColor },
+                              ]}
+                            >
+                              {hiveConnStatus.label}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.hardwareDescText}>
+                          {hiveConnStatus.description}
+                        </Text>
+
+                        <View style={styles.hardwareMetaRow}>
+                          <View style={styles.hardwareMetaItem}>
+                            <Text style={styles.hardwareMetaLabel}>Last Telemetry</Text>
+                            <Text style={styles.hardwareMetaVal} numberOfLines={1}>
+                              {selectedHive.lastReadingAt
+                                ? formatDate(selectedHive.lastReadingAt)
+                                : selectedHive.lastReading
+                                ? formatDate(selectedHive.lastReading)
+                                : 'No telemetry yet'}
+                            </Text>
+                          </View>
+                          <View style={styles.hardwareMetaDivider} />
+                          <View style={styles.hardwareMetaItem}>
+                            <Text style={styles.hardwareMetaLabel}>Last Ping</Text>
+                            <Text style={styles.hardwareMetaVal} numberOfLines={1}>
+                              {selectedHive.lastPingAt
+                                ? formatDate(selectedHive.lastPingAt)
+                                : selectedHive.updatedAt
+                                ? formatDate(selectedHive.updatedAt)
+                                : '--'}
+                            </Text>
+                          </View>
+                          <View style={styles.hardwareMetaDivider} />
+                          <View style={styles.hardwareMetaItem}>
+                            <Text style={styles.hardwareMetaLabel}>Node Battery</Text>
+                            <Text style={styles.hardwareMetaVal}>
+                              {typeof selectedHive.battery === 'number'
+                                ? `${selectedHive.battery}%`
+                                : '--'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.pairActionButton}
+                          onPress={() => {
+                            const h = selectedHive;
+                            setSelectedHive(null);
+                            handleOpenAddHive(h);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={hiveDeviceId ? 'options-outline' : 'add-circle-outline'}
+                            size={14}
+                            color={colors.primary}
+                          />
+                          <Text style={styles.pairActionText}>
+                            {hiveDeviceId ? 'Change / Unpair Device ID' : 'Pair ESP32 Hardware Device'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()}
+
                   {/* Weight Growth Graph Component */}
                   <HiveWeightTrendChart
                     hiveName={selectedHive.name}
@@ -876,14 +1018,31 @@ export function ApiaryPage({
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>ESP32 + HX711 Sensor Device ID (Optional)</Text>
+                <View style={styles.deviceInputHeader}>
+                  <Text style={styles.inputLabel}>ESP32 + HX711 Sensor Device ID (Optional)</Text>
+                  {formDeviceId.trim() ? (
+                    <TouchableOpacity
+                      onPress={() => setFormDeviceId('')}
+                      style={styles.clearDeviceBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={14} color={colors.textMuted} />
+                      <Text style={styles.clearDeviceText}>Clear / Unpair</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="e.g. ESP32-SCALE-001"
+                  placeholder="e.g. ESP32-SCALE-001 or MAC address"
                   placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                   value={formDeviceId}
                   onChangeText={setFormDeviceId}
                 />
+                <Text style={styles.inputHelpText}>
+                  Unique hardware ID configured on your ESP32 node. Leave blank if this hive is unmonitored.
+                </Text>
               </View>
 
               <View style={styles.inputGroup}>
@@ -1396,6 +1555,134 @@ const styles = StyleSheet.create({
   formErrorText: {
     fontSize: typography.size.xs,
     color: colors.error,
+  },
+  hardwareCard: {
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  hardwareHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  hardwareTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  hardwareIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  hardwareCardTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+  },
+  hardwareCardSub: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  hardwareStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.round,
+    gap: 4,
+  },
+  hardwareStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  hardwareStatusText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+  },
+  hardwareDescText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    lineHeight: 16,
+  },
+  hardwareMetaRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  hardwareMetaItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  hardwareMetaDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: colors.surfaceBorder,
+  },
+  hardwareMetaLabel: {
+    fontSize: 9,
+    color: colors.textMuted,
+    marginBottom: 2,
+  },
+  hardwareMetaVal: {
+    fontSize: 11,
+    fontWeight: typography.weight.semibold,
+    color: colors.textPrimary,
+  },
+  pairActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  pairActionText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
+  },
+  deviceInputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  clearDeviceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  clearDeviceText: {
+    fontSize: 10,
+    color: colors.textMuted,
+    fontWeight: typography.weight.medium,
+  },
+  inputHelpText: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 4,
+    lineHeight: 14,
   },
 });
 
