@@ -132,6 +132,8 @@ export function AppNavigator() {
         return (
           <HomePage
             stats={hiveData.stats}
+            hives={hiveData.hives}
+            batches={hiveData.batches}
             loading={hiveData.loading}
             error={hiveData.error}
             onRefresh={hiveData.refreshData}
@@ -173,6 +175,8 @@ export function AppNavigator() {
         return (
           <HomePage
             stats={hiveData.stats}
+            hives={hiveData.hives}
+            batches={hiveData.batches}
             loading={hiveData.loading}
             error={hiveData.error}
             onRefresh={hiveData.refreshData}

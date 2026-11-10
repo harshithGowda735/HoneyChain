@@ -1,31 +1,44 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Svg, { Path, Line, Circle, Text as SvgText, Rect } from 'react-native-svg';
+import Svg, {
+  Path,
+  Line,
+  Circle,
+  Text as SvgText,
+  Defs,
+  LinearGradient,
+  Stop,
+} from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
 
 const TIME_RANGES = [
-  { key: '7d', label: '7 Days', days: 7 },
-  { key: '30d', label: '30 Days', days: 30 },
-  { key: 'all', label: 'All', days: 9999 },
+  { key: '7d', label: '7D', days: 7 },
+  { key: '30d', label: '30D', days: 30 },
+  { key: 'all', label: 'ALL', days: 9999 },
 ];
 
 /**
- * HiveWeightTrendChart
- * Plots genuine scale measurements for an individual hive colony.
- * Strictly avoids interpolated, estimated, or fabricated readings.
+ * Stock-Market Style Weight Trend Chart
+ *
+ * Visualizes colony scale accumulation like a financial stock chart:
+ * - Dynamic Bullish (Emerald Green) vs Bearish (Market Red) colorway
+ * - Gradient area fill under the trajectory
+ * - Percentage and delta kg return pills
+ * - High / Low price-level callouts
+ * - Zero fabricated data: plots authentic measurements only.
  */
 export function HiveWeightTrendChart({
   readings = [],
   hiveName = 'Colony',
-  height = 180,
+  height = 195,
   compact = false,
   onAddScaleReading,
 }) {
   const [selectedRange, setSelectedRange] = useState('30d');
 
-  // 1. Filter only genuine readings with positive numeric weight
+  // 1. Filter genuine positive readings and sort chronologically
   const validReadings = useMemo(() => {
     return readings
       .filter((r) => typeof r.weight === 'number' && !isNaN(r.weight) && r.weight > 0)
@@ -43,10 +56,10 @@ export function HiveWeightTrendChart({
           timestamp: ts || Date.now(),
         };
       })
-      .sort((a, b) => a.timestamp - b.timestamp); // Chronological order (oldest to newest)
+      .sort((a, b) => a.timestamp - b.timestamp);
   }, [readings]);
 
-  // 2. Filter by active time range
+  // 2. Filter by selected time window
   const rangeReadings = useMemo(() => {
     if (validReadings.length === 0) return [];
     if (selectedRange === 'all') return validReadings;
@@ -54,20 +67,20 @@ export function HiveWeightTrendChart({
     const rangeConfig = TIME_RANGES.find((r) => r.key === selectedRange);
     const cutoffMs = Date.now() - (rangeConfig?.days || 30) * 24 * 60 * 60 * 1000;
     const filtered = validReadings.filter((r) => r.timestamp >= cutoffMs);
-    // If range has no points but overall readings exist, fall back to last N readings
-    return filtered.length > 0 ? filtered : validReadings.slice(-10);
+    return filtered.length > 0 ? filtered : validReadings.slice(-12);
   }, [validReadings, selectedRange]);
 
-  // 3. Trend calculations (only when at least 2 real readings exist)
-  const trendAnalysis = useMemo(() => {
+  // 3. Financial-style Trend & Return Analysis
+  const marketAnalysis = useMemo(() => {
     if (rangeReadings.length === 0) {
-      return { status: 'no_data', label: 'No data', deltaKg: 0 };
+      return { status: 'no_data', deltaKg: 0, percentChange: 0, isBullish: true };
     }
     if (rangeReadings.length === 1) {
       return {
         status: 'single_point',
-        label: 'Initial baseline set',
         deltaKg: 0,
+        percentChange: 0,
+        isBullish: true,
         latestWeight: rangeReadings[0].weight,
         latestTimestamp: rangeReadings[0].timestamp,
       };
@@ -76,35 +89,36 @@ export function HiveWeightTrendChart({
     const first = rangeReadings[0];
     const latest = rangeReadings[rangeReadings.length - 1];
     const delta = latest.weight - first.weight;
+    const pct = first.weight > 0 ? (delta / first.weight) * 100 : 0;
+    const isBullish = delta >= 0;
 
-    let status = 'stable';
-    let label = 'Stable';
-    if (delta > 0.1) {
-      status = 'increasing';
-      label = `+${delta.toFixed(1)} kg`;
-    } else if (delta < -0.1) {
-      status = 'decreasing';
-      label = `${delta.toFixed(1)} kg`;
-    } else {
-      label = '0.0 kg (Stable)';
-    }
+    const weights = rangeReadings.map((r) => r.weight);
+    const low = Math.min(...weights);
+    const high = Math.max(...weights);
 
     return {
-      status,
-      label,
+      status: delta > 0.05 ? 'rising' : delta < -0.05 ? 'falling' : 'flat',
       deltaKg: delta,
+      percentChange: pct,
+      isBullish,
       firstWeight: first.weight,
       latestWeight: latest.weight,
       latestTimestamp: latest.timestamp,
+      periodLow: low,
+      periodHigh: high,
     };
   }, [rangeReadings]);
 
-  // 4. SVG Coordinate Geometry
-  const chartWidth = 320;
+  // Dynamic Stock Market Theme Colors
+  const chartColor = marketAnalysis.isBullish ? '#10B981' : '#EF4444'; // Emerald Bull vs Market Bear
+  const chartSoftColor = marketAnalysis.isBullish ? '#E6F4EA' : '#FCE8E6';
+
+  // 4. SVG Geometry
+  const chartWidth = 330;
   const chartHeight = height;
-  const paddingLeft = 42;
-  const paddingRight = 16;
-  const paddingTop = 16;
+  const paddingLeft = 40;
+  const paddingRight = 18;
+  const paddingTop = 14;
   const paddingBottom = 26;
 
   const innerWidth = chartWidth - paddingLeft - paddingRight;
@@ -119,12 +133,12 @@ export function HiveWeightTrendChart({
     let minW = Math.min(...weights);
     let maxW = Math.max(...weights);
 
-    // Provide buffer so points don't clip at top/bottom
+    // Padding buffer
     if (maxW === minW) {
       minW = Math.max(0, minW - 1);
       maxW = maxW + 1;
     } else {
-      const buffer = (maxW - minW) * 0.15;
+      const buffer = (maxW - minW) * 0.18;
       minW = Math.max(0, minW - buffer);
       maxW = maxW + buffer;
     }
@@ -135,7 +149,6 @@ export function HiveWeightTrendChart({
     const timeRange = timeEnd - timeStart || 1;
 
     const coords = rangeReadings.map((r, i) => {
-      // Linear X based on chronological index if timestamps are identical
       const xRatio = timeRange > 0 ? (r.timestamp - timeStart) / timeRange : i / (rangeReadings.length - 1);
       const x = paddingLeft + xRatio * innerWidth;
       const yRatio = (r.weight - minW) / weightRange;
@@ -143,120 +156,117 @@ export function HiveWeightTrendChart({
       return { x, y, ...r };
     });
 
-    // Build SVG Path string
     const d = coords.reduce((acc, pt, idx) => {
       return idx === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : `${acc} L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
     }, '');
 
-    // Area fill path
-    const area = `${d} L ${coords[coords.length - 1].x.toFixed(1)} ${(paddingTop + innerHeight).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(paddingTop + innerHeight).toFixed(1)} Z`;
+    const lastX = coords[coords.length - 1].x.toFixed(1);
+    const firstX = coords[0].x.toFixed(1);
+    const bottomY = (paddingTop + innerHeight).toFixed(1);
+    const area = `${d} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
 
     return { points: coords, minWeight: minW, maxWeight: maxW, pathD: d, areaD: area };
   }, [rangeReadings, innerWidth, innerHeight]);
 
+  const latestPoint = points.length > 0 ? points[points.length - 1] : null;
+
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      {/* Header with Title and Trend Indicator */}
+      {/* 1. Stock Market Ticker Header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <View style={styles.titleBadgeRow}>
-            <Ionicons name="speedometer-outline" size={16} color={colors.primary} />
-            <Text style={styles.chartTitle}>Hive Weight Trend</Text>
+          <View style={styles.tickerRow}>
+            <Text style={styles.tickerBadge}>SCALE • {hiveName.toUpperCase()}</Text>
           </View>
-          <Text style={styles.chartSub}>Colony scale measurements</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.latestPriceText}>
+              {marketAnalysis.latestWeight !== undefined
+                ? `${marketAnalysis.latestWeight.toFixed(2)}`
+                : '--'}
+            </Text>
+            <Text style={styles.priceUnit}>kg</Text>
+
+            {marketAnalysis.status !== 'no_data' && marketAnalysis.status !== 'single_point' && (
+              <View
+                style={[
+                  styles.marketPill,
+                  { backgroundColor: chartSoftColor },
+                ]}
+              >
+                <Ionicons
+                  name={marketAnalysis.isBullish ? 'arrow-up' : 'arrow-down'}
+                  size={12}
+                  color={chartColor}
+                />
+                <Text style={[styles.marketPillText, { color: chartColor }]}>
+                  {marketAnalysis.isBullish ? '+' : ''}
+                  {marketAnalysis.deltaKg.toFixed(2)} kg (
+                  {marketAnalysis.isBullish ? '+' : ''}
+                  {marketAnalysis.percentChange.toFixed(1)}%)
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {trendAnalysis.status !== 'no_data' && (
-          <View
-            style={[
-              styles.trendBadge,
-              trendAnalysis.status === 'increasing' && styles.trendBadgeUp,
-              trendAnalysis.status === 'decreasing' && styles.trendBadgeDown,
-            ]}
-          >
-            <Ionicons
-              name={
-                trendAnalysis.status === 'increasing'
-                  ? 'trending-up'
-                  : trendAnalysis.status === 'decreasing'
-                  ? 'trending-down'
-                  : 'remove'
-              }
-              size={13}
-              color={
-                trendAnalysis.status === 'increasing'
-                  ? colors.primary
-                  : trendAnalysis.status === 'decreasing'
-                  ? colors.status.attention.text
-                  : colors.textSecondary
-              }
-            />
-            <Text
-              style={[
-                styles.trendText,
-                trendAnalysis.status === 'increasing' && styles.trendTextUp,
-                trendAnalysis.status === 'decreasing' && styles.trendTextDown,
-              ]}
-            >
-              {trendAnalysis.label}
-            </Text>
+        {/* Time Filter Tabs (e.g. 7D | 30D | ALL) */}
+        {validReadings.length >= 2 && !compact && (
+          <View style={styles.timeTabs}>
+            {TIME_RANGES.map((rng) => {
+              const isSelected = selectedRange === rng.key;
+              return (
+                <TouchableOpacity
+                  key={rng.key}
+                  onPress={() => setSelectedRange(rng.key)}
+                  style={[styles.timeTab, isSelected && styles.timeTabActive]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.timeTabText, isSelected && styles.timeTabTextActive]}>
+                    {rng.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </View>
 
-      {/* Latest Weight Summary Row */}
-      {trendAnalysis.latestWeight !== undefined && (
-        <View style={styles.weightSummaryRow}>
-          <View style={styles.weightMetric}>
-            <Text style={styles.weightValue}>
-              {trendAnalysis.latestWeight.toFixed(1)}{' '}
-              <Text style={styles.weightUnit}>kg</Text>
-            </Text>
-            <Text style={styles.weightLabel}>Latest Scale Reading</Text>
-          </View>
-
-          {trendAnalysis.latestTimestamp && (
-            <View style={styles.timestampBox}>
-              <Ionicons name="time-outline" size={12} color={colors.textMuted} />
-              <Text style={styles.timestampText}>
-                {new Date(trendAnalysis.latestTimestamp).toLocaleDateString([], {
+      {/* 2. Range High/Low Highlights (Financial Metric Strip) */}
+      {marketAnalysis.periodHigh !== undefined && !compact && (
+        <View style={styles.metricStrip}>
+          <Text style={styles.stripText}>
+            Range Low: <Text style={styles.stripValue}>{marketAnalysis.periodLow.toFixed(1)} kg</Text>
+          </Text>
+          <Text style={styles.stripDivider}>•</Text>
+          <Text style={styles.stripText}>
+            Range High: <Text style={styles.stripValue}>{marketAnalysis.periodHigh.toFixed(1)} kg</Text>
+          </Text>
+          {marketAnalysis.latestTimestamp && (
+            <>
+              <Text style={styles.stripDivider}>•</Text>
+              <Text style={styles.stripText}>
+                {new Date(marketAnalysis.latestTimestamp).toLocaleDateString([], {
                   month: 'short',
                   day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
                 })}
               </Text>
-            </View>
+            </>
           )}
         </View>
       )}
 
-      {/* Time Range Filter Tabs */}
-      {validReadings.length >= 2 && !compact && (
-        <View style={styles.timeRangeBar}>
-          {TIME_RANGES.map((rng) => {
-            const isSelected = selectedRange === rng.key;
-            return (
-              <TouchableOpacity
-                key={rng.key}
-                onPress={() => setSelectedRange(rng.key)}
-                style={[styles.rangeTab, isSelected && styles.rangeTabActive]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.rangeTabText, isSelected && styles.rangeTabTextActive]}>
-                  {rng.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Chart Canvas Area */}
+      {/* 3. SVG Stock Chart Plot */}
       {rangeReadings.length >= 2 ? (
-        <View style={styles.svgWrapper}>
+        <View style={styles.chartBox}>
           <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
-            {/* Background Grid Lines & Y-Axis Labels */}
+            <Defs>
+              <LinearGradient id="stockGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor={chartColor} stopOpacity="0.32" />
+                <Stop offset="100%" stopColor={chartColor} stopOpacity="0.0" />
+              </LinearGradient>
+            </Defs>
+
+            {/* Horizontal Grid Guide Lines */}
             {[0, 0.5, 1].map((ratio) => {
               const yVal = paddingTop + innerHeight - ratio * innerHeight;
               const weightVal = (minWeight + ratio * (maxWeight - minWeight)).toFixed(1);
@@ -267,7 +277,7 @@ export function HiveWeightTrendChart({
                     y1={yVal}
                     x2={chartWidth - paddingRight}
                     y2={yVal}
-                    stroke={colors.borderLight}
+                    stroke="#E5E7EB"
                     strokeWidth="1"
                     strokeDasharray="3,3"
                   />
@@ -284,33 +294,54 @@ export function HiveWeightTrendChart({
               );
             })}
 
-            {/* Shaded Area Fill */}
-            <Path d={areaD} fill={colors.primarySoft} opacity="0.6" />
+            {/* Area Gradient Fill */}
+            <Path d={areaD} fill="url(#stockGradient)" />
 
-            {/* Main Weight Trend Line */}
+            {/* Sharp Stock Market Trajectory Line */}
             <Path
               d={pathD}
               fill="none"
-              stroke={colors.primary}
-              strokeWidth="2.5"
+              stroke={chartColor}
+              strokeWidth="2.8"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Discrete Scale Measurement Markers */}
+            {/* Data Point Dots */}
             {points.map((pt, idx) => (
               <Circle
                 key={idx}
                 cx={pt.x}
                 cy={pt.y}
-                r="3.5"
-                fill={colors.primary}
-                stroke={colors.surface}
+                r="3"
+                fill={chartColor}
+                stroke="#FFFFFF"
                 strokeWidth="1.5"
               />
             ))}
 
-            {/* X-Axis Date Labels */}
+            {/* Pulsing Live Marker at the Latest Endpoint */}
+            {latestPoint && (
+              <>
+                <Circle
+                  cx={latestPoint.x}
+                  cy={latestPoint.y}
+                  r="6.5"
+                  fill={chartColor}
+                  opacity="0.25"
+                />
+                <Circle
+                  cx={latestPoint.x}
+                  cy={latestPoint.y}
+                  r="4"
+                  fill={chartColor}
+                  stroke="#FFFFFF"
+                  strokeWidth="2"
+                />
+              </>
+            )}
+
+            {/* X-Axis Timestamps */}
             {points.length > 0 && (
               <>
                 <SvgText
@@ -320,7 +351,10 @@ export function HiveWeightTrendChart({
                   fill={colors.textSecondary}
                   textAnchor="start"
                 >
-                  {new Date(points[0].timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  {new Date(points[0].timestamp).toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
                 </SvgText>
                 <SvgText
                   x={points[points.length - 1].x}
@@ -329,49 +363,41 @@ export function HiveWeightTrendChart({
                   fill={colors.textSecondary}
                   textAnchor="end"
                 >
-                  {new Date(points[points.length - 1].timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  {new Date(points[points.length - 1].timestamp).toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
                 </SvgText>
               </>
             )}
           </Svg>
         </View>
-      ) : rangeReadings.length === 1 ? (
-        <View style={styles.singlePointNotice}>
-          <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.singlePointTitle}>Baseline Reading Recorded</Text>
-            <Text style={styles.singlePointDesc}>
-              {rangeReadings[0].weight} kg recorded. Trend line appears after 2+ readings.
-            </Text>
-          </View>
-        </View>
       ) : (
-        <View style={styles.emptyNotice}>
-          <Ionicons name="scale-outline" size={24} color={colors.textMuted} />
-          <Text style={styles.emptyTitle}>No weight history yet</Text>
+        /* Empty / Initial Baseline State */
+        <View style={styles.emptyCard}>
+          <Ionicons name="trending-up-outline" size={28} color={colors.textMuted} />
+          <Text style={styles.emptyTitle}>
+            {validReadings.length === 1
+              ? `Baseline Calibrated (${validReadings[0].weight.toFixed(1)} kg)`
+              : 'Scale Trajectory Awaiting Readings'}
+          </Text>
           <Text style={styles.emptyDesc}>
-            Connect an ESP32 + HX711 scale or record manual weights.
+            {validReadings.length === 1
+              ? 'Subsequent scale measurements will generate the colony growth curve.'
+              : 'Record manual measurements or connect an ESP32 + HX711 scale.'}
           </Text>
           {onAddScaleReading && (
             <TouchableOpacity
+              style={styles.emptyActionBtn}
               onPress={onAddScaleReading}
-              style={styles.recordScaleBtn}
               activeOpacity={0.8}
             >
-              <Ionicons name="add" size={14} color={colors.primary} />
-              <Text style={styles.recordScaleBtnText}>Record Scale Reading</Text>
+              <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+              <Text style={styles.emptyActionText}>Add Scale Reading</Text>
             </TouchableOpacity>
           )}
         </View>
       )}
-
-      {/* Scientific Explanation Footnote */}
-      <View style={styles.footnoteRow}>
-        <Ionicons name="shield-checkmark-outline" size={12} color={colors.textMuted} />
-        <Text style={styles.footnoteText}>
-          Colony weight includes bees, brood, comb, and forage.
-        </Text>
-      </View>
     </View>
   );
 }
@@ -379,208 +405,157 @@ export function HiveWeightTrendChart({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    padding: spacing.md,
-    marginVertical: spacing.sm,
+    marginBottom: spacing.md,
     ...shadows.card,
   },
   containerCompact: {
-    padding: spacing.sm + 2,
-    marginVertical: 4,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs + 2,
-    gap: spacing.sm,
-  },
-  titleBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  chartTitle: {
-    fontSize: typography.size.sm + 1,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  chartSub: {
-    fontSize: typography.size.xs - 1,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  trendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.surfaceSubtle,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  trendBadgeUp: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primaryLight,
-  },
-  trendBadgeDown: {
-    backgroundColor: colors.status.attention.bg,
-    borderColor: colors.status.attention.border,
-  },
-  trendText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: colors.textSecondary,
-  },
-  trendTextUp: {
-    color: colors.primary,
-  },
-  trendTextDown: {
-    color: colors.status.attention.text,
-  },
-  weightSummaryRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    paddingBottom: spacing.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
-  },
-  weightMetric: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  weightValue: {
-    fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  weightUnit: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
-    color: colors.textSecondary,
-  },
-  weightLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginLeft: 4,
-  },
-  timestampBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  timestampText: {
-    fontSize: 10,
-    color: colors.textMuted,
-  },
-  timeRangeBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 6,
     marginBottom: spacing.xs,
   },
-  rangeTab: {
-    paddingHorizontal: 8,
+  tickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  tickerBadge: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  latestPriceText: {
+    fontSize: 26,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  priceUnit: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
+  },
+  marketPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
+    gap: 3,
+  },
+  marketPillText: {
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.bold,
+    letterSpacing: 0.2,
+  },
+  timeTabs: {
+    flexDirection: 'row',
     backgroundColor: colors.surfaceSubtle,
+    borderRadius: borderRadius.sm,
+    padding: 2,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.surfaceBorder,
   },
-  rangeTabActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  timeTab: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm - 2,
   },
-  rangeTabText: {
-    fontSize: 10,
+  timeTabActive: {
+    backgroundColor: colors.surface,
+    ...shadows.sm,
+  },
+  timeTabText: {
+    fontSize: 11,
     fontWeight: typography.weight.medium,
     color: colors.textSecondary,
   },
-  rangeTabTextActive: {
-    color: colors.textInverse,
-    fontWeight: typography.weight.bold,
-  },
-  svgWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: spacing.xs,
-  },
-  singlePointNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primarySoft,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    marginVertical: spacing.sm,
-  },
-  singlePointTitle: {
-    fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  singlePointDesc: {
-    fontSize: typography.size.xs,
+  timeTabTextActive: {
     color: colors.textPrimary,
-    marginTop: 2,
-    lineHeight: 16,
+    fontWeight: typography.weight.bold,
   },
-  emptyNotice: {
+  metricStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: spacing.sm,
+    gap: 6,
+  },
+  stripText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  stripValue: {
+    fontWeight: typography.weight.semibold,
+    color: colors.textSecondary,
+  },
+  stripDivider: {
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+  chartBox: {
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  emptyCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
     paddingHorizontal: spacing.md,
-    gap: 6,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderStyle: 'dashed',
+    marginTop: spacing.sm,
   },
   emptyTitle: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
+    marginTop: spacing.xs,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   emptyDesc: {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 16,
-    maxWidth: 280,
+    maxWidth: 240,
+    marginBottom: spacing.sm,
   },
-  recordScaleBtn: {
+  emptyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.md,
+    gap: 6,
     paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.sm,
-    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
   },
-  recordScaleBtnText: {
+  emptyActionText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
     color: colors.primary,
-  },
-  footnoteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: spacing.xs + 2,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-  },
-  footnoteText: {
-    fontSize: 9.5,
-    color: colors.textMuted,
-    flex: 1,
-    lineHeight: 13,
   },
 });
 

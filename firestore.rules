@@ -32,6 +32,11 @@ service cloud.firestore {
         allow update, delete: if false; // Append-only activity log
       }
 
+      // In-app notifications under user
+      match /notifications/{notificationId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // Private scheme bookmarks under user
       match /saved_schemes/{schemeId} {
         allow read, write: if isOwner(userId);

@@ -16,9 +16,14 @@ import AppButton from '../components/common/AppButton';
 import AppCard from '../components/common/AppCard';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { evaluateHivesTelemetry } from '../services/temperatureAlertService';
+import { evaluateHarvestSuggestions, notifyHarvestSuggestion } from '../services/harvestSuggestionService';
+import { getHiveMaintenanceStatus } from '../services/maintenanceService';
 
 export function HomePage({
   stats,
+  hives = [],
+  batches = [],
   loading = false,
   error = null,
   onRefresh,
@@ -28,6 +33,46 @@ export function HomePage({
   const { user, currentUser } = useAuth();
   const { t } = useLanguage();
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // 1. Evaluate Temperature State Transitions & Trigger Phone Notifications
+  React.useEffect(() => {
+    if (user?.uid && hives.length > 0) {
+      evaluateHivesTelemetry(user.uid, hives).catch((err) =>
+        console.log('[HomePage] Telemetry evaluation notice:', err?.message)
+      );
+    }
+  }, [user?.uid, hives]);
+
+  // 2. Evaluate Harvest Suggestions for Specific Hive Boxes
+  const harvestSuggestions = React.useMemo(() => {
+    return evaluateHarvestSuggestions(hives, batches);
+  }, [hives, batches]);
+
+  // Track notified suggestions to prevent repeated phone buzzes
+  const notifiedSuggestionsRef = React.useRef(new Set());
+  React.useEffect(() => {
+    harvestSuggestions.forEach((sugg) => {
+      if (!notifiedSuggestionsRef.current.has(sugg.hiveId)) {
+        notifiedSuggestionsRef.current.add(sugg.hiveId);
+        notifyHarvestSuggestion(sugg);
+      }
+    });
+  }, [harvestSuggestions]);
+
+  // 3. Detect any Hives in Active Alert or Needing Inspection
+  const criticalTempHive = React.useMemo(() => {
+    return hives.find(
+      (h) => typeof h.temperature === 'number' && (h.temperature >= 38.0 || h.temperature <= 29.0)
+    );
+  }, [hives]);
+
+  const dueInspectionHive = React.useMemo(() => {
+    for (const h of hives) {
+      const status = getHiveMaintenanceStatus(h);
+      if (status?.isInspectionDue) return h;
+    }
+    return null;
+  }, [hives]);
 
   const handleRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -103,6 +148,43 @@ export function HomePage({
         </View>
       ) : null}
 
+      {/* Critical Temperature Alert Banner */}
+      {criticalTempHive && (
+        <TouchableOpacity
+          style={styles.criticalTempAlertBanner}
+          activeOpacity={0.85}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
+        >
+          <View style={styles.criticalIconBox}>
+            <Ionicons name="warning" size={18} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.criticalAlertTitle}>
+              {criticalTempHive.temperature >= 38.0 ? '🚨 Overheating Alert' : '❄️ Chilling Risk Alert'} — {criticalTempHive.name}
+            </Text>
+            <Text style={styles.criticalAlertDesc}>
+              Internal temp is {criticalTempHive.temperature.toFixed(1)}°C. Check ventilation and shade.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.status.critical.text} />
+        </TouchableOpacity>
+      )}
+
+      {/* Routine Inspection Due Callout */}
+      {dueInspectionHive && (
+        <TouchableOpacity
+          style={styles.inspectionDuePill}
+          activeOpacity={0.85}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
+        >
+          <Ionicons name="clipboard-outline" size={16} color={colors.primary} />
+          <Text style={styles.inspectionDueText} numberOfLines={1}>
+            Bi-weekly inspection due: <Text style={{ fontWeight: typography.weight.bold }}>{dueInspectionHive.name}</Text>
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
+
       {/* 2. Onboarding Guidance when 0 Hives registered */}
       {!hasHives && !loading && (
         <View style={styles.onboardingCard}>
@@ -156,6 +238,54 @@ export function HomePage({
           </Text>
         </AppCard>
       </View>
+
+      {/* 4. Harvest Inspection Suggestion for Specific Hive Box */}
+      {harvestSuggestions.length > 0 && (
+        <AppCard
+          elevation="card"
+          style={styles.harvestSuggestionCard}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
+        >
+          <View style={styles.suggestionHeaderRow}>
+            <View style={styles.suggestionIconCircle}>
+              <Ionicons name="leaf" size={18} color="#059669" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.boxTag}>
+                <Text style={styles.boxTagText}>
+                  BOX {harvestSuggestions[0].hiveName.toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.suggestionTitle}>
+                Harvest Inspection Recommended
+              </Text>
+            </View>
+            <View style={styles.gainBadge}>
+              <Text style={styles.gainBadgeText}>+{harvestSuggestions[0].netGainKg} kg</Text>
+            </View>
+          </View>
+
+          <Text style={styles.suggestionDesc}>
+            {harvestSuggestions[0].hiveName} ({harvestSuggestions[0].yardLocation}) reached {harvestSuggestions[0].currentWeightKg} kg with a steady +{harvestSuggestions[0].netGainKg} kg accumulation. Check honey supers for capped combs before extracting.
+          </Text>
+
+          <View style={styles.suggestionFooterRow}>
+            <Text style={styles.cautionHint}>
+              *Verify frames are 80%+ capped before extracting
+            </Text>
+            <TouchableOpacity
+              style={styles.suggestionActionBtn}
+              onPress={() => {
+                if (onOpenRecordHarvest) onOpenRecordHarvest();
+                else if (onNavigateToTab) onNavigateToTab('apiary');
+              }}
+            >
+              <Text style={styles.suggestionActionText}>Log Harvest</Text>
+              <Ionicons name="arrow-forward" size={13} color="#059669" />
+            </TouchableOpacity>
+          </View>
+        </AppCard>
+      )}
 
       {/* 4. Prominent Action: Record Harvest */}
       <View style={styles.primaryActionSection}>
@@ -353,6 +483,141 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
     color: colors.status.critical.text,
+  },
+  criticalTempAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.status.critical.bg,
+    borderColor: colors.status.critical.border,
+    borderWidth: 1.5,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  criticalIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.status.critical.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  criticalAlertTitle: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.bold,
+    color: colors.status.critical.text,
+  },
+  criticalAlertDesc: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  inspectionDuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryLight,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  inspectionDueText: {
+    fontSize: typography.size.xs,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  harvestSuggestionCard: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1.5,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  suggestionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+    gap: spacing.sm,
+  },
+  suggestionIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  boxTagText: {
+    fontSize: 9,
+    fontWeight: typography.weight.bold,
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  suggestionTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: '#065F46',
+  },
+  gainBadge: {
+    backgroundColor: '#059669',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+  },
+  gainBadgeText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: '#FFFFFF',
+  },
+  suggestionDesc: {
+    fontSize: typography.size.xs,
+    color: '#166534',
+    lineHeight: 18,
+    marginVertical: spacing.xs,
+  },
+  suggestionFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: '#DCFCE7',
+  },
+  cautionHint: {
+    fontSize: 10,
+    color: '#15803D',
+    fontStyle: 'italic',
+    flex: 1,
+  },
+  suggestionActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: '#DCFCE7',
+    borderRadius: borderRadius.sm,
+  },
+  suggestionActionText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: '#059669',
   },
   onboardingCard: {
     backgroundColor: colors.surface,

@@ -20,6 +20,7 @@ import AppCard from '../components/common/AppCard';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import HiveWeightTrendChart from '../components/telemetry/HiveWeightTrendChart';
+import HiveMaintenanceModal from '../components/hives/HiveMaintenanceModal';
 import RecordHarvestModal from '../components/batches/RecordHarvestModal';
 import QRCodeModal from '../components/batches/QRCodeModal';
 import { formatDate } from '../utils/formatDate';
@@ -27,6 +28,7 @@ import {
   determineSensorConnectionStatus,
   getRecentHiveReadings,
 } from '../services/sensorService';
+import { saveHiveMaintenance, getHiveMaintenanceStatus } from '../services/maintenanceService';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -89,6 +91,7 @@ export function ApiaryPage({
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [batchDetailVisible, setBatchDetailVisible] = useState(false);
   const [addReadingModalVisible, setAddReadingModalVisible] = useState(false);
+  const [maintenanceModalVisible, setMaintenanceModalVisible] = useState(false);
 
   // Form State: Add/Edit Hive
   const [editingHiveId, setEditingHiveId] = useState(null);
@@ -210,6 +213,23 @@ export function ApiaryPage({
         },
       ]
     );
+  };
+
+  const handleSaveMaintenance = async (hiveId, maintenanceData) => {
+    try {
+      await saveHiveMaintenance(hiveId, user?.uid, maintenanceData, onUpdateHive);
+      if (selectedHive && selectedHive.id === hiveId) {
+        setSelectedHive((prev) => ({
+          ...prev,
+          lastInspectedAt: maintenanceData.type !== 'cleaning' ? new Date().toISOString() : prev.lastInspectedAt,
+          lastCleanedAt: maintenanceData.type !== 'inspection' ? new Date().toISOString() : prev.lastCleanedAt,
+          lastMaintenanceNotes: maintenanceData.notes || prev.lastMaintenanceNotes,
+        }));
+      }
+      Alert.alert('Success', 'Inspection and maintenance logged successfully.');
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Failed to save maintenance.');
+    }
   };
 
   // 2. Reading Submission Handler
@@ -652,6 +672,25 @@ export function ApiaryPage({
                     onAddScaleReading={() => setAddReadingModalVisible(true)}
                   />
 
+                  {/* Maintenance & Inspection Status */}
+                  <View style={styles.maintenanceDetailBox}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.maintenanceDetailTitle}>
+                        Colony Maintenance
+                      </Text>
+                      <Text style={styles.maintenanceDetailSub}>
+                        Last inspected: {selectedHive.lastInspectedAt ? formatDate(selectedHive.lastInspectedAt) : 'None recorded'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.logChecklistBtn}
+                      onPress={() => setMaintenanceModalVisible(true)}
+                    >
+                      <Ionicons name="clipboard-outline" size={14} color={colors.primary} />
+                      <Text style={styles.logChecklistBtnText}>Log Inspection</Text>
+                    </TouchableOpacity>
+                  </View>
+
                   {/* Action Buttons in Modal */}
                   <View style={styles.detailActionsRow}>
                     <AppButton
@@ -902,6 +941,14 @@ export function ApiaryPage({
           setQrModalVisible(false);
           if (onOpenPublicVerify) onOpenPublicVerify(code);
         }}
+      />
+
+      {/* Hive Maintenance Checklist Modal */}
+      <HiveMaintenanceModal
+        visible={maintenanceModalVisible}
+        hive={selectedHive}
+        onClose={() => setMaintenanceModalVisible(false)}
+        onSaveMaintenance={handleSaveMaintenance}
       />
     </View>
   );
@@ -1321,6 +1368,43 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  maintenanceDetailBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  maintenanceDetailTitle: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+  },
+  maintenanceDetailSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  logChecklistBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  logChecklistBtnText: {
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
+    color: colors.primary,
   },
   detailActionsRow: {
     flexDirection: 'row',

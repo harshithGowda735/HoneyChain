@@ -7,6 +7,7 @@ import AppCard from '../common/AppCard';
 import StatusBadge from '../common/StatusBadge';
 import { formatTemperature, formatHumidity, formatWeight } from '../../utils/formatSensorValue';
 import { formatDate } from '../../utils/formatDate';
+import { getHiveMaintenanceStatus } from '../../services/maintenanceService';
 
 export function HiveCard({ hive, onPress }) {
   if (!hive) return null;
@@ -15,6 +16,9 @@ export function HiveCard({ hive, onPress }) {
   const hasHumidity = typeof hive.humidity === 'number';
   const hasWeight = typeof hive.weight === 'number';
   const hasBattery = typeof hive.battery === 'number';
+
+  const isTempCritical = hasTemp && (hive.temperature >= 38.0 || hive.temperature <= 29.0);
+  const maintenance = getHiveMaintenanceStatus(hive);
 
   return (
     <AppCard
@@ -50,12 +54,18 @@ export function HiveCard({ hive, onPress }) {
       {/* Sensor Readings Grid */}
       <View style={styles.telemetryContainer}>
         {/* Temp */}
-        <View style={styles.telemetryItem}>
+        <View style={[styles.telemetryItem, isTempCritical && styles.telemetryItemAlert]}>
           <View style={styles.telemetryLabelRow}>
-            <Ionicons name="thermometer" size={13} color={hasTemp ? colors.sensor.temp : colors.textMuted} />
-            <Text style={styles.telemetryLabel}>Temp</Text>
+            <Ionicons
+              name={isTempCritical ? 'warning' : 'thermometer'}
+              size={13}
+              color={isTempCritical ? colors.status.critical.text : hasTemp ? colors.sensor.temp : colors.textMuted}
+            />
+            <Text style={[styles.telemetryLabel, isTempCritical && { color: colors.status.critical.text, fontWeight: 'bold' }]}>
+              {isTempCritical ? 'ALERT' : 'Temp'}
+            </Text>
           </View>
-          <Text style={[styles.telemetryValue, { color: hasTemp ? colors.sensor.temp : colors.textMuted }]}>
+          <Text style={[styles.telemetryValue, { color: isTempCritical ? colors.status.critical.text : hasTemp ? colors.sensor.temp : colors.textMuted, fontWeight: isTempCritical ? 'bold' : 'normal' }]}>
             {hasTemp ? formatTemperature(hive.temperature) : '--'}
           </Text>
         </View>
@@ -176,6 +186,11 @@ const styles = StyleSheet.create({
   telemetryItem: {
     alignItems: 'center',
     flex: 1,
+  },
+  telemetryItemAlert: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: borderRadius.sm,
+    paddingVertical: 2,
   },
   telemetryLabelRow: {
     flexDirection: 'row',
