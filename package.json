@@ -29,7 +29,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test:frontend": "node scripts/test-temperature-alerts.js && node scripts/test-harvest-and-maintenance.js",
+    "test": "npm run test:frontend"
   },
   "private": true,
   "devDependencies": {
