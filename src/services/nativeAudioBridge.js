@@ -153,7 +153,12 @@ export async function playAudioResponse(audioBase64, fallbackText, options = {})
   }
 
   try {
-    const FileSystem = require('expo-file-system');
+    let FileSystem;
+    try {
+      FileSystem = require('expo-file-system/legacy');
+    } catch (_) {
+      FileSystem = require('expo-file-system');
+    }
     if (!FileSystem || !FileSystem.cacheDirectory) {
       throw new Error('FileSystem cache directory unavailable');
     }

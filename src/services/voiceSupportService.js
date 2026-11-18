@@ -1,16 +1,38 @@
 import { Platform } from 'react-native';
+import * as Linking from 'expo-linking';
 import { auth } from './firebase';
 
-const DEFAULT_SERVER_URL = Platform.select({
-  android: 'http://10.81.13.190:3001',
-  ios: 'http://10.81.13.190:3001',
-  default: 'http://localhost:3001',
-});
+function resolveBackendUrl() {
+  const envUrl =
+    process.env.EXPO_PUBLIC_API_URL ||
+    process.env.EXPO_PUBLIC_VOICE_BACKEND_URL;
 
-export const BACKEND_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  process.env.EXPO_PUBLIC_VOICE_BACKEND_URL ||
-  DEFAULT_SERVER_URL;
+  // Respect explicit HTTPS production URLs immediately
+  if (envUrl && envUrl.startsWith('https://')) {
+    return envUrl;
+  }
+
+  // Auto-detect computer LAN IP from Expo Metro URL (e.g. exp://192.168.119.37:8081)
+  if (Platform.OS !== 'web') {
+    try {
+      const metroUrl = Linking.createURL('/');
+      const match = metroUrl.match(/^(?:exp|http|https):\/\/([^:/]+)/i);
+      if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
+        return `http://${match[1]}:3001`;
+      }
+    } catch (_) {}
+  }
+
+  if (envUrl) return envUrl;
+
+  return Platform.select({
+    android: 'http://192.168.119.37:3001',
+    ios: 'http://192.168.119.37:3001',
+    default: 'http://localhost:3001',
+  });
+}
+
+export const BACKEND_URL = resolveBackendUrl();
 
 /**
  * Checks if the HoneyChain AI Voice Support backend is reachable.
@@ -105,10 +127,15 @@ export async function sendVoiceTurn(audioUri, language = 'kn-IN') {
   const endpoint = `${BACKEND_URL}/api/voice-support/process`;
   console.log(`[VoiceSupportService] Submitting voice turn to: ${endpoint}`);
 
-  // 2. Read audio file to Base64 using expo-file-system
+  // 2. Read audio file to Base64 using expo-file-system/legacy
   let base64Audio = '';
   try {
-    const FileSystem = require('expo-file-system');
+    let FileSystem;
+    try {
+      FileSystem = require('expo-file-system/legacy');
+    } catch (_) {
+      FileSystem = require('expo-file-system');
+    }
     if (FileSystem && typeof FileSystem.readAsStringAsync === 'function') {
       base64Audio = await FileSystem.readAsStringAsync(audioUri, {
         encoding: FileSystem.EncodingType?.Base64 || 'base64',
