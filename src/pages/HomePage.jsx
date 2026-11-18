@@ -19,6 +19,10 @@ import { useLanguage } from '../context/LanguageContext';
 import { evaluateHivesTelemetry } from '../services/temperatureAlertService';
 import { evaluateHarvestSuggestions, notifyHarvestSuggestion } from '../services/harvestSuggestionService';
 import { getHiveMaintenanceStatus } from '../services/maintenanceService';
+import { FriendlyBee } from '../components/illustrations/FriendlyBee';
+import { HoneyJarIllustration } from '../components/illustrations/HoneyJarIllustration';
+import { BeehiveIllustration } from '../components/illustrations/BeehiveIllustration';
+import { HoneycombPattern } from '../components/illustrations/HoneycombPattern';
 
 export function HomePage({
   stats,
@@ -74,6 +78,21 @@ export function HomePage({
     return null;
   }, [hives]);
 
+  // Compute healthy vs attention counts
+  const { healthyCount, attentionCount } = React.useMemo(() => {
+    let healthy = 0;
+    let attention = 0;
+    hives.forEach((h) => {
+      const st = (h.status || 'healthy').toLowerCase();
+      if (st === 'attention' || st === 'warning' || st === 'critical') {
+        attention++;
+      } else {
+        healthy++;
+      }
+    });
+    return { healthyCount: healthy, attentionCount: attention };
+  }, [hives]);
+
   const handleRefresh = React.useCallback(async () => {
     setRefreshing(true);
     if (onRefresh) {
@@ -95,45 +114,56 @@ export function HomePage({
         <RefreshControl
           refreshing={refreshing || loading}
           onRefresh={handleRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
+          tintColor={colors.primaryDark}
+          colors={[colors.primaryDark]}
         />
       }
     >
-      {/* 1. Official Government Header & Apiary Identity */}
-      <View style={styles.topHeader}>
-        <View style={styles.headerTopRow}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.apiaryBadge}>
-              <Ionicons name="leaf" size={12} color={colors.primary} />
-              <Text style={styles.apiaryBadgeText} numberOfLines={1}>
+      {/* 1. Warm Hero Welcome Section with Friendly Bee Illustration */}
+      <View style={styles.heroBanner}>
+        {/* Decorative subtle honeycomb pattern in background */}
+        <View style={styles.heroPatternWrapper} pointerEvents="none">
+          <HoneycombPattern width={160} height={100} opacity={0.35} />
+        </View>
+
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroIdentity}>
+            <View style={styles.apiaryTag}>
+              <Ionicons name="leaf" size={11} color={colors.sage} />
+              <Text style={styles.apiaryTagText} numberOfLines={1}>
                 {apiaryName} • {currentUser?.district || currentUser?.state || 'Karnataka'}
               </Text>
             </View>
             <Text style={styles.greetingTitle}>
               {t('welcome')}, {beekeeperName}
             </Text>
+            <Text style={styles.greetingSub}>
+              {hasHives ? `${hives.length} active colonies producing raw honey` : 'Welcome to your digital apiary'}
+            </Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.profileAvatarBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigateToTab && onNavigateToTab('profile')}
-            accessibilityLabel="View Profile"
-          >
-            {currentUser?.photoUrl ? (
-              <Image
-                source={{ uri: currentUser.photoUrl }}
-                style={styles.profileAvatarImg}
-              />
-            ) : (
-              <View style={styles.profileAvatarPlaceholder}>
-                <Text style={styles.profileAvatarInitials}>
-                  {(beekeeperName || 'BK').slice(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.heroRightArt}>
+            <FriendlyBee size={52} showFlightPath={true} />
+            <TouchableOpacity
+              style={styles.profileAvatarBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigateToTab && onNavigateToTab('profile')}
+              accessibilityLabel="View Beekeeper Profile"
+            >
+              {currentUser?.photoUrl ? (
+                <Image
+                  source={{ uri: currentUser.photoUrl }}
+                  style={styles.profileAvatarImg}
+                />
+              ) : (
+                <View style={styles.profileAvatarPlaceholder}>
+                  <Text style={styles.profileAvatarInitials}>
+                    {(beekeeperName || 'BK').slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -177,20 +207,18 @@ export function HomePage({
           activeOpacity={0.85}
           onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
         >
-          <Ionicons name="clipboard-outline" size={16} color={colors.primary} />
+          <Ionicons name="clipboard-outline" size={16} color={colors.primaryDark} />
           <Text style={styles.inspectionDueText} numberOfLines={1}>
             Bi-weekly inspection due: <Text style={{ fontWeight: typography.weight.bold }}>{dueInspectionHive.name}</Text>
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
         </TouchableOpacity>
       )}
 
       {/* 2. Onboarding Guidance when 0 Hives registered */}
       {!hasHives && !loading && (
         <View style={styles.onboardingCard}>
-          <View style={styles.onboardingIconCircle}>
-            <Ionicons name="grid-outline" size={32} color={colors.primary} />
-          </View>
+          <BeehiveIllustration size={70} />
           <Text style={styles.onboardingTitle}>{t('onboardingTitle')}</Text>
           <Text style={styles.onboardingDesc}>{t('onboardingDesc')}</Text>
           <AppButton
@@ -204,20 +232,34 @@ export function HomePage({
         </View>
       )}
 
-      {/* 3. Primary Metrics from Real Firestore records */}
+      {/* 3. Apiary Overview & Primary Metrics */}
       <View style={styles.statsRow}>
         <AppCard
           elevation="card"
           style={styles.statCard}
           onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
         >
-          <View style={styles.statIconBox}>
-            <Ionicons name="grid" size={20} color={colors.primary} />
+          <View style={styles.statHeaderRow}>
+            <View style={styles.statIconBox}>
+              <Ionicons name="grid" size={18} color={colors.primaryDark} />
+            </View>
+            <View style={styles.statusPillsRow}>
+              <View style={styles.healthyPill}>
+                <View style={styles.greenDot} />
+                <Text style={styles.healthyPillText}>{healthyCount}</Text>
+              </View>
+              {attentionCount > 0 && (
+                <View style={styles.attentionPill}>
+                  <View style={styles.amberDot} />
+                  <Text style={styles.attentionPillText}>{attentionCount}</Text>
+                </View>
+              )}
+            </View>
           </View>
           <Text style={styles.statValue}>{stats?.totalHives || 0}</Text>
           <Text style={styles.statLabel}>{t('registeredHives')}</Text>
           <Text style={styles.statSub}>
-            {stats?.totalHives === 1 ? '1 colony' : `${stats?.totalHives || 0} colonies`}
+            {stats?.totalHives === 1 ? '1 active colony' : `${stats?.totalHives || 0} active colonies`}
           </Text>
         </AppCard>
 
@@ -226,20 +268,65 @@ export function HomePage({
           style={styles.statCard}
           onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
         >
-          <View style={[styles.statIconBox, { backgroundColor: colors.accentSoft }]}>
-            <Ionicons name="cube" size={20} color={colors.accentDeep} />
+          <View style={styles.statHeaderRow}>
+            <View style={[styles.statIconBox, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="cube" size={18} color={colors.primaryDark} />
+            </View>
+            <View style={styles.trendPill}>
+              <Ionicons name="trending-up" size={12} color={colors.sage} />
+              <Text style={styles.trendPillText}>Accumulating</Text>
+            </View>
           </View>
-          <Text style={[styles.statValue, { color: colors.accentDeep }]}>
+          <Text style={[styles.statValue, { color: colors.primaryDark }]}>
             {stats?.totalHarvestedKg || '0.0'} <Text style={styles.unitText}>kg</Text>
           </Text>
           <Text style={styles.statLabel}>{t('totalHarvested')}</Text>
           <Text style={styles.statSub}>
-            {stats?.activeBatchesCount || 0} lots recorded
+            {stats?.activeBatchesCount || 0} certified lots recorded
           </Text>
         </AppCard>
       </View>
 
-      {/* 4. Harvest Inspection Suggestion for Specific Hive Box */}
+      {/* 4. Quick Actions Row for Beekeepers */}
+      <View style={styles.quickActionsContainer}>
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          activeOpacity={0.8}
+          onPress={() => {
+            if (onOpenRecordHarvest) onOpenRecordHarvest();
+            else if (onNavigateToTab) onNavigateToTab('apiary');
+          }}
+        >
+          <View style={[styles.quickActionIconCircle, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="add" size={20} color={colors.primaryDark} />
+          </View>
+          <Text style={styles.quickActionLabel}>Log Harvest</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          activeOpacity={0.8}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
+        >
+          <View style={[styles.quickActionIconCircle, { backgroundColor: colors.sageLight }]}>
+            <Ionicons name="clipboard" size={18} color={colors.sage} />
+          </View>
+          <Text style={styles.quickActionLabel}>Inspect Hive</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          activeOpacity={0.8}
+          onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
+        >
+          <View style={[styles.quickActionIconCircle, { backgroundColor: colors.backgroundSecondary }]}>
+            <Ionicons name="cube-outline" size={18} color={colors.primaryDark} />
+          </View>
+          <Text style={styles.quickActionLabel}>Add Colony</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 5. Harvest Inspection Suggestion for Specific Hive Box */}
       {harvestSuggestions.length > 0 && (
         <AppCard
           elevation="card"
@@ -247,8 +334,8 @@ export function HomePage({
           onPress={() => onNavigateToTab && onNavigateToTab('apiary')}
         >
           <View style={styles.suggestionHeaderRow}>
-            <View style={styles.suggestionIconCircle}>
-              <Ionicons name="leaf" size={18} color="#059669" />
+            <View style={styles.suggestionArtWrapper}>
+              <HoneyJarIllustration size={42} />
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.boxTag}>
@@ -266,12 +353,12 @@ export function HomePage({
           </View>
 
           <Text style={styles.suggestionDesc}>
-            {harvestSuggestions[0].hiveName} ({harvestSuggestions[0].yardLocation}) reached {harvestSuggestions[0].currentWeightKg} kg with a steady +{harvestSuggestions[0].netGainKg} kg accumulation. Check honey supers for capped combs before extracting.
+            {harvestSuggestions[0].hiveName} ({harvestSuggestions[0].yardLocation}) reached {harvestSuggestions[0].currentWeightKg} kg with steady +{harvestSuggestions[0].netGainKg} kg accumulation. Check honey supers for 80%+ capped comb.
           </Text>
 
           <View style={styles.suggestionFooterRow}>
             <Text style={styles.cautionHint}>
-              *Verify frames are 80%+ capped before extracting
+              *Verify frames before extraction
             </Text>
             <TouchableOpacity
               style={styles.suggestionActionBtn}
@@ -280,40 +367,38 @@ export function HomePage({
                 else if (onNavigateToTab) onNavigateToTab('apiary');
               }}
             >
-              <Text style={styles.suggestionActionText}>Log Harvest</Text>
-              <Ionicons name="arrow-forward" size={13} color="#059669" />
+              <Text style={styles.suggestionActionText}>Log Extraction</Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.primaryDark} />
             </TouchableOpacity>
           </View>
         </AppCard>
       )}
 
-      {/* 4. Prominent Action: Record Harvest */}
-      <View style={styles.primaryActionSection}>
-        <TouchableOpacity
-          style={styles.recordHarvestBigBtn}
-          activeOpacity={0.85}
-          onPress={() => {
-            if (onOpenRecordHarvest) {
-              onOpenRecordHarvest();
-            } else if (onNavigateToTab) {
-              onNavigateToTab('apiary');
-            }
-          }}
-        >
-          <View style={styles.recordHarvestIconCircle}>
-            <Ionicons name="add" size={24} color={colors.surface} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.recordHarvestBtnTitle}>{t('recordHarvestBtn')}</Text>
-            <Text style={styles.recordHarvestBtnSub}>
-              Log honey extracted from your hives
-            </Text>
-          </View>
-          <Ionicons name="arrow-forward" size={20} color={colors.surface} />
-        </TouchableOpacity>
-      </View>
+      {/* 6. Prominent Action Banner: Record Honey Harvest */}
+      <TouchableOpacity
+        style={styles.recordHarvestBigBtn}
+        activeOpacity={0.88}
+        onPress={() => {
+          if (onOpenRecordHarvest) {
+            onOpenRecordHarvest();
+          } else if (onNavigateToTab) {
+            onNavigateToTab('apiary');
+          }
+        }}
+      >
+        <View style={styles.recordHarvestIconCircle}>
+          <Ionicons name="cube" size={24} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.recordHarvestBtnTitle}>{t('recordHarvestBtn')}</Text>
+          <Text style={styles.recordHarvestBtnSub}>
+            Log honey extracted from your hives to generate verifiable QR tags
+          </Text>
+        </View>
+        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+      </TouchableOpacity>
 
-      {/* 5. Smart Hive IoT Telemetry & Weight Summary (Zero fake data) */}
+      {/* 7. Smart Hive IoT Telemetry & Weight Summary (Zero fake data) */}
       <View style={styles.sensorSection}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>{t('sensorStatus')}</Text>
@@ -335,19 +420,24 @@ export function HomePage({
             <View style={styles.sensorMetricRow}>
               {/* Colony Biomass / Scale Weight */}
               <View style={styles.sensorMetric}>
-                <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
+                <View style={[styles.metricIconWrap, { backgroundColor: colors.sageLight }]}>
+                  <Ionicons name="speedometer-outline" size={18} color={colors.sage} />
+                </View>
                 <View>
                   <Text style={styles.sensorMetricValue}>
                     {stats?.avgWeight ? `${stats.avgWeight} kg` : '-- kg'}
                   </Text>
-                  <Text style={styles.sensorMetricLabel}>Colony Weight</Text>
+                  <Text style={styles.sensorMetricLabel}>Scale Weight</Text>
                 </View>
               </View>
 
               <View style={styles.sensorMetricDivider} />
 
+              {/* Brood Temperature */}
               <View style={styles.sensorMetric}>
-                <Ionicons name="thermometer-outline" size={20} color={colors.sensor.temp} />
+                <View style={[styles.metricIconWrap, { backgroundColor: colors.accentSoft }]}>
+                  <Ionicons name="thermometer-outline" size={18} color={colors.primaryDark} />
+                </View>
                 <View>
                   <Text style={styles.sensorMetricValue}>
                     {stats?.avgTemperature ? `${stats.avgTemperature} °C` : '-- °C'}
@@ -358,8 +448,11 @@ export function HomePage({
 
               <View style={styles.sensorMetricDivider} />
 
+              {/* Colony Relative Humidity */}
               <View style={styles.sensorMetric}>
-                <Ionicons name="water-outline" size={20} color={colors.sensor.humidity} />
+                <View style={[styles.metricIconWrap, { backgroundColor: '#EAF3F6' }]}>
+                  <Ionicons name="water-outline" size={18} color={colors.sensor.humidity} />
+                </View>
                 <View>
                   <Text style={styles.sensorMetricValue}>
                     {stats?.avgHumidity ? `${stats.avgHumidity} %` : '-- %'}
@@ -372,17 +465,17 @@ export function HomePage({
         ) : (
           <View style={styles.sensorNoticeCard}>
             <View style={styles.sensorNoticeHeader}>
-              <Ionicons name="hardware-chip-outline" size={22} color={colors.textSecondary} />
+              <Ionicons name="hardware-chip-outline" size={20} color={colors.primaryDark} />
               <Text style={styles.sensorNoticeTitle}>{t('sensorNotConnected')}</Text>
             </View>
             <Text style={styles.sensorNoticeText}>
-              Pair an ESP32 + HX711 scale to stream live colony weight.
+              Pair an ESP32 + HX711 scale to stream live colony weight and brood telemetry.
             </Text>
           </View>
         )}
       </View>
 
-      {/* 6. Honey Traceability & QR Verification Banner */}
+      {/* 8. Honey Traceability & QR Verification Banner */}
       <AppCard
         elevation="card"
         style={styles.traceabilityCard}
@@ -390,13 +483,13 @@ export function HomePage({
       >
         <View style={styles.traceabilityHeader}>
           <View style={styles.traceabilityIconBox}>
-            <Ionicons name="qr-code-outline" size={22} color={colors.primary} />
+            <Ionicons name="qr-code-outline" size={22} color={colors.primaryDark} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.traceabilityTitle}>Honey Traceability</Text>
-            <Text style={styles.traceabilitySub}>Jar QR codes & batch verification</Text>
+            <Text style={styles.traceabilityTitle}>Honey Traceability & QR Tags</Text>
+            <Text style={styles.traceabilitySub}>Consumer-verifiable harvest certificates</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </View>
       </AppCard>
     </ScrollView>
@@ -407,31 +500,38 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl + 16,
+    paddingBottom: spacing.xxxl + 24,
   },
-  topHeader: {
+  heroBanner: {
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     marginBottom: spacing.lg,
-    paddingTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+    overflow: 'hidden',
+    position: 'relative',
+    ...shadows.card,
   },
-  headerTopRow: {
+  heroPatternWrapper: {
+    position: 'absolute',
+    right: -20,
+    top: -10,
+    opacity: 0.4,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  profileAvatarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroIdentity: {
+    flex: 1,
+    paddingRight: spacing.sm,
   },
-  apiaryBadge: {
+  apiaryTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
@@ -439,25 +539,59 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     gap: 4,
     borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderColor: colors.surfaceBorder,
   },
-  apiaryBadgeText: {
+  apiaryTagText: {
     fontSize: typography.size.xs - 1,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   greetingTitle: {
-    fontSize: typography.size.xl + 2,
+    fontSize: typography.size.xxl,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
-  greetingSubtitle: {
+  greetingSub: {
     fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  heroRightArt: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  profileAvatarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  profileAvatarImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  profileAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarInitials: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
   errorAlert: {
     flexDirection: 'row',
@@ -517,8 +651,8 @@ const styles = StyleSheet.create({
   inspectionDuePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primaryLight,
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.softAmber,
     borderWidth: 1,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.sm,
@@ -532,8 +666,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   harvestSuggestionCard: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
+    backgroundColor: colors.surface,
+    borderColor: colors.softAmber,
     borderWidth: 1.5,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
@@ -546,35 +680,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     gap: spacing.sm,
   },
-  suggestionIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#DCFCE7',
+  suggestionArtWrapper: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   boxTag: {
     alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginBottom: 2,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   boxTagText: {
     fontSize: 9,
     fontWeight: typography.weight.bold,
-    color: '#059669',
+    color: colors.primaryDark,
     letterSpacing: 0.5,
   },
   suggestionTitle: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
-    color: '#065F46',
+    color: colors.textPrimary,
   },
   gainBadge: {
-    backgroundColor: '#059669',
+    backgroundColor: colors.primaryDark,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.sm,
@@ -586,7 +720,7 @@ const styles = StyleSheet.create({
   },
   suggestionDesc: {
     fontSize: typography.size.xs,
-    color: '#166534',
+    color: colors.textSecondary,
     lineHeight: 18,
     marginVertical: spacing.xs,
   },
@@ -597,11 +731,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: '#DCFCE7',
+    borderTopColor: colors.surfaceBorder,
   },
   cautionHint: {
     fontSize: 10,
-    color: '#15803D',
+    color: colors.sage,
     fontStyle: 'italic',
     flex: 1,
   },
@@ -611,40 +745,32 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.accentSoft,
     borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   suggestionActionText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: '#059669',
+    color: colors.primaryDark,
   },
   onboardingCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.primary,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+    borderColor: colors.softAmber,
     marginBottom: spacing.lg,
     alignItems: 'center',
     ...shadows.card,
-  },
-  onboardingIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
   onboardingTitle: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     textAlign: 'center',
+    marginTop: spacing.sm,
   },
   onboardingDesc: {
     fontSize: typography.size.xs + 1,
@@ -660,23 +786,86 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   statCard: {
     flex: 1,
     padding: spacing.md,
   },
-  statIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primarySoft,
+  statHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
+  statIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusPillsRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  healthyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.status.healthy.bg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    gap: 3,
+  },
+  greenDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.status.healthy.indicator,
+  },
+  healthyPillText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.status.healthy.text,
+  },
+  attentionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.status.attention.bg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    gap: 3,
+  },
+  amberDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.status.attention.indicator,
+  },
+  attentionPillText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.status.attention.text,
+  },
+  trendPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.sageLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    gap: 3,
+  },
+  trendPillText: {
+    fontSize: 9,
+    fontWeight: typography.weight.bold,
+    color: colors.sage,
+  },
   statValue: {
-    fontSize: typography.size.xl,
+    fontSize: typography.size.xxl,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
@@ -696,8 +885,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  primaryActionSection: {
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
     marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  quickActionItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  quickActionIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.textPrimary,
   },
   recordHarvestBigBtn: {
     flexDirection: 'row',
@@ -706,24 +920,25 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     padding: spacing.md + 2,
     gap: spacing.md,
+    marginBottom: spacing.lg,
     ...shadows.card,
   },
   recordHarvestIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   recordHarvestBtnTitle: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.bold,
-    color: colors.surface,
+    color: '#FFFFFF',
   },
   recordHarvestBtnSub: {
     fontSize: typography.size.xs,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: 'rgba(255, 255, 255, 0.9)',
     marginTop: 2,
     lineHeight: 15,
   },
@@ -772,21 +987,28 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs + 2,
+  },
+  metricIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sensorMetricDivider: {
     width: 1,
     height: 36,
     backgroundColor: colors.surfaceBorder,
-    marginHorizontal: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   sensorMetricValue: {
-    fontSize: typography.size.md + 1,
+    fontSize: typography.size.sm + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   sensorMetricLabel: {
-    fontSize: typography.size.xs - 1,
+    fontSize: typography.size.xs - 2,
     color: colors.textSecondary,
   },
   sensorNoticeCard: {
@@ -825,7 +1047,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -838,137 +1060,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  profileAvatarBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  profileAvatarImg: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  profileAvatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileAvatarInitials: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  schemesCard: {
-    marginBottom: spacing.xl,
-    padding: 0,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderRadius: borderRadius.lg,
-  },
-  schemesGovRibbon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FCF8ED',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0E6D2',
-    gap: spacing.xs,
-  },
-  schemesGovEmblem: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  schemesGovRibbonText: {
-    flex: 1,
-    fontSize: 10,
-    fontWeight: typography.weight.bold,
-    color: colors.accentDeep,
-    letterSpacing: 0.5,
-  },
-  schemesOfficialBadge: {
-    backgroundColor: colors.accentDeep,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-  },
-  schemesOfficialBadgeText: {
-    fontSize: 9,
-    fontWeight: typography.weight.bold,
-    color: colors.surface,
-    letterSpacing: 0.5,
-  },
-  schemesBody: {
-    padding: spacing.md,
-  },
-  schemesHeading: {
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  schemesDescription: {
-    fontSize: typography.size.xs + 1,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: spacing.md,
-  },
-  schemesHighlightsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  schemesPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-  },
-  schemesPillText: {
-    fontSize: typography.size.xs - 1,
-    fontWeight: typography.weight.semibold,
-    color: colors.primary,
-  },
-  schemesFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-  },
-  schemesCtaText: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  schemesArrowCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

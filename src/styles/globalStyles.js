@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import colors from '../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../constants/layout';
 
@@ -14,14 +14,14 @@ export const globalStyles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl + 60, // extra clearance for bottom tab bar
+    paddingBottom: spacing.xxxl + 60, // clearance for bottom tab bar
   },
 
   // Typography
   screenTitle: {
     fontSize: typography.size.xxxl,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   sectionTitle: {
@@ -45,7 +45,7 @@ export const globalStyles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Cards
+  // Warm Parchment Cards
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
@@ -75,21 +75,24 @@ export const globalStyles = StyleSheet.create({
 
   // Badges & Tags
   pillTag: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 1,
     borderRadius: borderRadius.full,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
   },
 
   // Sensor reading tags
   sensorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
     backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
 
   // Dividers

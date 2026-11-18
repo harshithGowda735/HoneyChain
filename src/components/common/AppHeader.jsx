@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { spacing, typography } from '../../constants/layout';
+import { spacing, borderRadius, typography } from '../../constants/layout';
 
 export function AppHeader({
   title,
@@ -20,13 +20,14 @@ export function AppHeader({
             onPress={onBack}
             style={styles.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
           >
-            <Ionicons name={backIcon} size={22} color={colors.primary} />
+            <Ionicons name={backIcon} size={22} color={colors.primaryDark} />
           </TouchableOpacity>
         )}
         <View style={styles.textContainer}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
         </View>
         {rightElement && <View style={styles.rightWrapper}>{rightElement}</View>}
       </View>
@@ -49,6 +50,10 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: spacing.sm,
     padding: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   textContainer: {
     flex: 1,
@@ -56,7 +61,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.size.xxl,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textPrimary,
     letterSpacing: -0.4,
   },
   subtitle: {

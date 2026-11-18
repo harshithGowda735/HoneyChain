@@ -1,8 +1,8 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, View, Text, Platform } from 'react-native';
+import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { borderRadius, shadows } from '../../constants/layout';
+import { shadows } from '../../constants/layout';
 
 export function VoiceSupportButton({ onPress, bottomOffset = 70 }) {
   return (
@@ -20,7 +20,7 @@ export function VoiceSupportButton({ onPress, bottomOffset = 70 }) {
         accessibilityLabel="Talk to HoneyChain AI Voice Assistant"
         accessibilityRole="button"
       >
-        <Ionicons name="mic" size={24} color={colors.surface} />
+        <Ionicons name="mic" size={24} color="#FFFFFF" />
         <View style={styles.badgeIndicator}>
           <Text style={styles.badgeText}>AI</Text>
         </View>
@@ -43,28 +43,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
-    ...shadows.elevated,
+    borderColor: '#FFFFFF',
+    ...shadows.glow,
     elevation: 8,
   },
   badgeIndicator: {
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primaryDark,
     borderRadius: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
     paddingVertical: 1,
-    borderWidth: 1,
-    borderColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   badgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.surface,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
 });
 
 export default VoiceSupportButton;
-
