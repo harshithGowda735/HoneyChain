@@ -12,14 +12,18 @@ let isConfigured = false;
 let channelsAvailable = false;
 
 // Configure how notifications are displayed when the app is foregrounded
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+try {
+  if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  }
+} catch (_) {}
 
 /**
  * Initializes notification permissions and Android channels.
