@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,11 +21,12 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { pickProfileImage } from '../services/storageService';
 import { detectCurrentLocation, INDIAN_STATES as STATES } from '../services/locationService';
+import { FriendlyBee, BeehiveIllustration, HoneycombPattern } from '../components/illustrations';
 
 const ENTITY_CATEGORIES = [
   { value: 'farmer', label: 'Individual Farmer', labelKn: 'ವೈಯಕ್ತಿಕ ಕೃಷಿಕ', labelHi: 'व्यक्तिगत किसान' },
   { value: 'fpo_shg', label: 'FPO / SHG Member', labelKn: 'FPO / ಸಂಘದ ಸದಸ್ಯ', labelHi: 'एफपीओ / एसएचजी सदस्य' },
-  { value: 'enterprise', label: 'Commercial Beekeeper', labelKn: 'ವಾಣಿಜ್ಯ ಜೇನುಸಾಕಣೆದಾರ', labelHi: 'व्यावसायिक मधुमक्खी पालक' },
+  { value: 'enterprise', label: 'Commercial Beekeeper', labelKn: 'ವಾಣಿಜ್ಯ ಜೇನುಸಾಕಣೆದಾರ', labelHi: 'व्याವಸಾಯಿಕ ಮಧುಮಕ್ಖೀ ಪಾಲಕ' },
 ];
 
 export function FirstTimeSetupPage({ onComplete }) {
@@ -43,26 +45,7 @@ export function FirstTimeSetupPage({ onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Automatically detect beekeeper location upon loading
-  useEffect(() => {
-    handleDetectLocation(true);
-  }, []);
-
-  const handlePickPhoto = async () => {
-    setIsPickingPhoto(true);
-    try {
-      const picked = await pickProfileImage();
-      if (picked && picked.persistentUrl) {
-        setPhotoUrl(picked.persistentUrl);
-      }
-    } catch (err) {
-      Alert.alert('Profile Photo', err?.message || 'Could not select photo.');
-    } finally {
-      setIsPickingPhoto(false);
-    }
-  };
-
-  const handleDetectLocation = async (isAuto = false) => {
+  const handleDetectLocation = useCallback(async (isAuto = false) => {
     setIsDetectingLocation(true);
     try {
       const detected = await detectCurrentLocation(isAuto);
@@ -79,12 +62,31 @@ export function FirstTimeSetupPage({ onComplete }) {
           );
         }
       }
-    } catch (err) {
+    } catch (_err) {
       if (!isAuto) {
         Alert.alert('Location Notice', 'Could not fetch GPS coordinates. Please select your state manually.');
       }
     } finally {
       setIsDetectingLocation(false);
+    }
+  }, [district]);
+
+  // Automatically detect beekeeper location upon loading
+  useEffect(() => {
+    handleDetectLocation(true);
+  }, [handleDetectLocation]);
+
+  const handlePickPhoto = async () => {
+    setIsPickingPhoto(true);
+    try {
+      const picked = await pickProfileImage();
+      if (picked && picked.persistentUrl) {
+        setPhotoUrl(picked.persistentUrl);
+      }
+    } catch (err) {
+      Alert.alert('Profile Photo', err?.message || 'Could not select photo.');
+    } finally {
+      setIsPickingPhoto(false);
     }
   };
 
@@ -132,24 +134,36 @@ export function FirstTimeSetupPage({ onComplete }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="home" size={26} color={colors.primary} />
+        {/* Hero Banner with FriendlyBee & Beehive */}
+        <View style={styles.heroCard}>
+          <View style={styles.patternOverlay} pointerEvents="none">
+            <HoneycombPattern size={110} opacity={0.14} />
           </View>
-          <Text style={styles.title}>Apiary Setup</Text>
-          <Text style={styles.subtitle}>Set up your apiary profile</Text>
+          <View style={styles.heroArtRow}>
+            <FriendlyBee size={52} />
+            <BeehiveIllustration size={64} style={{ marginLeft: -12 }} />
+          </View>
+
+          <View style={styles.stepBadge}>
+            <Ionicons name="sparkles" size={12} color={colors.primaryDark} />
+            <Text style={styles.stepBadgeText}>Welcome to HoneyChain • Step 1 of 1</Text>
+          </View>
+
+          <Text style={styles.title}>Register Your Apiary</Text>
+          <Text style={styles.subtitle}>
+            Set up your apiary identity for IoT telemetry, honey traceability, and government scheme verification.
+          </Text>
         </View>
 
         {/* Error Banner */}
         {errorMsg ? (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={colors.error} />
+            <Ionicons name="alert-circle" size={18} color={colors.status.critical.text} />
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         ) : null}
 
-        {/* Form Card */}
+        {/* Main Form Card */}
         <View style={styles.formCard}>
           {/* Beekeeper Profile Photo */}
           <View style={styles.photoSection}>
@@ -163,17 +177,17 @@ export function FirstTimeSetupPage({ onComplete }) {
                 <Image source={{ uri: photoUrl }} style={styles.photoImage} />
               ) : (
                 <View style={styles.photoPlaceholder}>
-                  <Ionicons name="camera" size={24} color={colors.primary} />
+                  <Ionicons name="camera" size={26} color={colors.primaryDark} />
                 </View>
               )}
               <View style={styles.photoBadge}>
-                <Ionicons name="add" size={14} color={colors.surface} />
+                <Ionicons name="add" size={14} color="#FFFDF7" />
               </View>
             </TouchableOpacity>
             <View style={styles.photoInfo}>
               <Text style={styles.photoTitle}>Beekeeper Photo</Text>
               <Text style={styles.photoSub}>
-                {photoUrl ? 'Tap to change photo' : 'Tap to add profile photo'}
+                {photoUrl ? 'Tap to change photo' : 'Add photo for honey consumer verification cards'}
               </Text>
             </View>
           </View>
@@ -182,7 +196,7 @@ export function FirstTimeSetupPage({ onComplete }) {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('nameLabel')}</Text>
             <View style={styles.inputRow}>
-              <Ionicons name="person-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={18} color={colors.primaryDark} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder={t('namePlaceholder')}
@@ -198,7 +212,7 @@ export function FirstTimeSetupPage({ onComplete }) {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('apiaryNameLabel')}</Text>
             <View style={styles.inputRow}>
-              <Ionicons name="leaf-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <Ionicons name="home-outline" size={18} color={colors.primaryDark} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder={t('apiaryNamePlaceholder')}
@@ -221,10 +235,10 @@ export function FirstTimeSetupPage({ onComplete }) {
                 disabled={isDetectingLocation}
               >
                 {isDetectingLocation ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color={colors.primaryDark} />
                 ) : (
                   <>
-                    <Ionicons name="locate" size={13} color={colors.primary} />
+                    <Ionicons name="locate" size={13} color={colors.primaryDark} />
                     <Text style={styles.detectLocationText}>
                       {locationDetectedNotice ? `📍 ${locationDetectedNotice}` : 'GPS Auto-Detect'}
                     </Text>
@@ -232,27 +246,33 @@ export function FirstTimeSetupPage({ onComplete }) {
                 )}
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {STATES.map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedState(st)}
-                  style={[
-                    styles.stateChip,
-                    selectedState === st && styles.stateChipActive,
-                  ]}
-                >
-                  <Text
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={{ paddingRight: 10 }}>
+              {STATES.map((st) => {
+                const isSelected = selectedState === st;
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedState(st)}
                     style={[
-                      styles.stateChipText,
-                      selectedState === st && styles.stateChipTextActive,
+                      styles.stateChip,
+                      isSelected && styles.stateChipActive,
                     ]}
                   >
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.stateChipText,
+                        isSelected && styles.stateChipTextActive,
+                      ]}
+                    >
+                      {st}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={12} color={colors.primaryDark} style={{ marginLeft: 3 }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
@@ -260,7 +280,7 @@ export function FirstTimeSetupPage({ onComplete }) {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('districtLabel')}</Text>
             <View style={styles.inputRow}>
-              <Ionicons name="location-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <Ionicons name="location-outline" size={18} color={colors.primaryDark} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Kodagu / Mysuru / Shimoga"
@@ -287,7 +307,7 @@ export function FirstTimeSetupPage({ onComplete }) {
                 return (
                   <TouchableOpacity
                     key={cat.value}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                     onPress={() => setEntityType(cat.value)}
                     style={[
                       styles.categoryOption,
@@ -295,9 +315,9 @@ export function FirstTimeSetupPage({ onComplete }) {
                     ]}
                   >
                     <Ionicons
-                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={18}
-                      color={isSelected ? colors.primary : colors.textMuted}
+                      color={isSelected ? colors.primaryDark : colors.textMuted}
                     />
                     <Text
                       style={[
@@ -315,7 +335,7 @@ export function FirstTimeSetupPage({ onComplete }) {
 
           {/* Submit Button */}
           <AppButton
-            title="Save & Continue"
+            title="Complete Setup & Enter Apiary"
             iconName="arrow-forward"
             iconPosition="right"
             variant="primary"
@@ -337,35 +357,64 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: Platform.OS === 'ios' ? spacing.xxl : spacing.xl,
     paddingBottom: spacing.xxxl,
   },
-  header: {
+  heroCard: {
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceBorder,
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    position: 'relative',
+    overflow: 'hidden',
+    ...shadows.card,
   },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primarySoft,
+  patternOverlay: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+  },
+  heroArtRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  stepBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSecondary,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    gap: 4,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+  },
+  stepBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   title: {
-    fontSize: typography.size.xxl,
+    fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
-    marginBottom: spacing.xs,
+    color: colors.textPrimary,
+    marginBottom: 4,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: spacing.md,
-    lineHeight: 20,
+    paddingHorizontal: spacing.sm,
+    lineHeight: 18,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -375,18 +424,18 @@ const styles = StyleSheet.create({
     borderColor: colors.status.critical.border,
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     gap: spacing.sm,
   },
   errorText: {
     flex: 1,
     fontSize: typography.size.sm,
-    color: colors.error,
+    color: colors.status.critical.text,
   },
   formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1.5,
     borderColor: colors.surfaceBorder,
     padding: spacing.lg,
     ...shadows.card,
@@ -395,8 +444,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.xl,
-    paddingBottom: spacing.lg,
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
   },
@@ -404,13 +453,12 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceSecondary,
     borderWidth: 2,
     borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    overflow: 'visible',
   },
   photoPlaceholder: {
     width: '100%',
@@ -418,7 +466,7 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceSecondary,
   },
   photoImage: {
     width: '100%',
@@ -432,11 +480,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: colors.cardSurface,
   },
   photoInfo: {
     flex: 1,
@@ -456,36 +504,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs + 2,
+    marginBottom: spacing.xs,
   },
   detectLocationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceSecondary,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   detectLocationText: {
     fontSize: typography.size.xs - 1,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   inputGroup: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md + 2,
   },
   label: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs + 2,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
     height: 48,
@@ -496,7 +548,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: typography.size.md,
+    fontSize: typography.size.sm + 1,
     color: colors.textPrimary,
   },
   chipScroll: {
@@ -504,17 +556,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   stateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.background,
     marginRight: spacing.xs + 2,
   },
   stateChipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceSecondary,
     borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   stateChipText: {
     fontSize: typography.size.xs + 1,
@@ -522,7 +577,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.medium,
   },
   stateChipTextActive: {
-    color: colors.textInverse,
+    color: colors.primaryDark,
     fontWeight: typography.weight.bold,
   },
   categoryContainer: {
@@ -537,23 +592,31 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.background,
     gap: spacing.sm,
   },
   categoryOptionSelected: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceSecondary,
     borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   categoryText: {
     fontSize: typography.size.sm,
     color: colors.textPrimary,
   },
   categoryTextSelected: {
-    color: colors.primary,
-    fontWeight: typography.weight.semibold,
+    color: colors.primaryDark,
+    fontWeight: typography.weight.bold,
   },
   submitBtn: {
     marginTop: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
 });
 

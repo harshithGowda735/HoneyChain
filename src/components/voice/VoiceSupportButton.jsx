@@ -20,7 +20,7 @@ export function VoiceSupportButton({ onPress, bottomOffset = 70 }) {
         accessibilityLabel="Talk to HoneyChain AI Voice Assistant"
         accessibilityRole="button"
       >
-        <Ionicons name="mic" size={24} color="#FFFFFF" />
+        <Ionicons name="mic" size={24} color="#493D32" />
         <View style={styles.badgeIndicator}>
           <Text style={styles.badgeText}>AI</Text>
         </View>
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFFDF7',
     ...shadows.glow,
     elevation: 8,
   },
@@ -56,12 +56,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFFDF7',
   },
   badgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF7',
     letterSpacing: 0.5,
   },
 });

@@ -23,6 +23,7 @@ import LanguageSelector from '../components/common/LanguageSelector';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { pickProfileImage } from '../services/storageService';
+import { HoneycombPattern, BotanicalAccent } from '../components/illustrations';
 
 const ENTITY_OPTIONS = [
   { value: 'farmer', label: 'Individual Farmer' },
@@ -67,7 +68,7 @@ export function ProfilePage() {
         entityType: formEntityType,
       });
       setEditModalVisible(false);
-      Alert.alert(t('success'), t('saveProfile') + ' ✓');
+      Alert.alert(t('success'), (t('saveProfile') || 'Profile Saved') + ' ✓');
     } catch (err) {
       Alert.alert(t('error'), err?.message || 'Failed to update profile.');
     } finally {
@@ -83,7 +84,7 @@ export function ProfilePage() {
         await updateProfile({
           photoUrl: picked.persistentUrl,
         });
-        Alert.alert(t('success'), t('photoUploaded'));
+        Alert.alert(t('success'), t('photoUploaded') || 'Profile photo updated');
       }
     } catch (err) {
       Alert.alert(t('error'), err?.message || 'Failed to update profile photo.');
@@ -132,20 +133,28 @@ export function ProfilePage() {
       >
         {/* Page Header */}
         <View style={styles.header}>
-          <Text style={globalStyles.screenTitle}>{t('profileTitle')}</Text>
-          <Text style={globalStyles.sectionSubtitle}>
+          <Text style={styles.screenTitle}>{t('profileTitle')}</Text>
+          <Text style={styles.sectionSubtitle}>
             {t('profileSubtitle')}
           </Text>
         </View>
 
-        {/* Beekeeper Profile Card */}
-        <AppCard elevation="card" style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            {/* Avatar with Photo or Fallback Initials */}
+        {/* Beekeeper Profile Hero Card */}
+        <View style={styles.heroCard}>
+          {/* Subtle Honeycomb Backdrop */}
+          <View style={styles.heroPatternWrapper} pointerEvents="none">
+            <HoneycombPattern size={120} opacity={0.12} />
+          </View>
+          <View style={styles.heroBotanicalWrapper} pointerEvents="none">
+            <BotanicalAccent size={48} opacity={0.2} />
+          </View>
+
+          <View style={styles.heroTopRow}>
+            {/* Avatar with Photo or Monogram */}
             <TouchableOpacity
               onPress={handleChangePhoto}
               style={styles.avatarWrapper}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               disabled={isUploadingPhoto}
             >
               {currentUser?.photoUrl ? (
@@ -155,48 +164,56 @@ export function ProfilePage() {
                 />
               ) : (
                 <View style={styles.avatarCircle}>
-                  <Ionicons name="person" size={26} color={colors.textSecondary} />
+                  <Text style={styles.avatarInitials}>{getAvatarInitials()}</Text>
                 </View>
               )}
 
-              {/* Edit Camera Overlay Icon */}
+              {/* Edit Camera Overlay Badge */}
               <View style={styles.cameraIconBadge}>
                 {isUploadingPhoto ? (
-                  <ActivityIndicator size="small" color={colors.surface} />
+                  <ActivityIndicator size="small" color="#FFFDF7" />
                 ) : (
-                  <Ionicons name="camera" size={13} color={colors.surface} />
+                  <Ionicons name="camera" size={13} color="#FFFDF7" />
                 )}
               </View>
             </TouchableOpacity>
 
             <View style={{ flex: 1 }}>
-              <Text style={styles.beekeeperName}>
-                {currentUser?.name || 'Beekeeper'}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.beekeeperName} numberOfLines={1}>
+                  {currentUser?.name || userProfile?.displayName || 'Lead Beekeeper'}
+                </Text>
+              </View>
 
-              <Text style={styles.beekeeperRole}>{currentUser?.role || 'Beekeeper'}</Text>
+              {/* Verified Badge */}
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={13} color={colors.sage} />
+                <Text style={styles.verifiedBadgeText}>Verified Beekeeper</Text>
+              </View>
+
               <Text style={styles.beekeeperPhone}>
                 📱 {currentUser?.phoneNumber || user?.phoneNumber || 'Mobile Registered'}
               </Text>
             </View>
           </View>
 
+          {/* Quick Edit Action Button */}
           <TouchableOpacity
             style={styles.editProfileButton}
             onPress={openEditModal}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
           >
-            <Ionicons name="create-outline" size={16} color={colors.primary} />
+            <Ionicons name="create-outline" size={16} color={colors.primaryDark} />
             <Text style={styles.editProfileButtonText}>Edit Profile Info</Text>
           </TouchableOpacity>
-        </AppCard>
+        </View>
 
-        {/* Apiary Information Card */}
+        {/* Apiary & Location Information Card */}
         <Text style={styles.sectionHeader}>Apiary & Location</Text>
         <AppCard elevation="card" style={styles.infoCard}>
           <View style={styles.infoRow}>
             <View style={styles.infoIconBox}>
-              <Ionicons name="home-outline" size={18} color={colors.primary} />
+              <Ionicons name="home" size={18} color={colors.primaryDark} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>{t('apiaryNameLabel')}</Text>
@@ -208,10 +225,10 @@ export function ProfilePage() {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIconBox}>
-              <Ionicons name="location-outline" size={18} color={colors.primary} />
+              <Ionicons name="location" size={18} color={colors.primaryDark} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Jurisdiction / State</Text>
+              <Text style={styles.infoLabel}>Jurisdiction / Region</Text>
               <Text style={styles.infoValue}>
                 {userProfile?.district ? `${userProfile.district}, ` : ''}{userProfile?.state || 'Karnataka'}
               </Text>
@@ -220,7 +237,7 @@ export function ProfilePage() {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIconBox}>
-              <Ionicons name="people-outline" size={18} color={colors.primary} />
+              <Ionicons name="people" size={18} color={colors.primaryDark} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>{t('beekeeperCategory')}</Text>
@@ -236,18 +253,18 @@ export function ProfilePage() {
 
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <View style={styles.infoIconBox}>
-              <Ionicons name="key-outline" size={18} color={colors.primary} />
+              <Ionicons name="finger-print" size={18} color={colors.primaryDark} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Account ID</Text>
+              <Text style={styles.infoLabel}>Account Identity</Text>
               <Text style={styles.uidText} numberOfLines={1} selectable>
-                {user?.uid}
+                {user?.uid ? `ID: ${user.uid.slice(0, 14)}...` : 'HoneyChain Authorized'}
               </Text>
             </View>
           </View>
         </AppCard>
 
-        {/* Language Preferences (Only place authenticated users change language) */}
+        {/* Language & Unit Preferences */}
         <Text style={styles.sectionHeader}>{t('languagePreference')}</Text>
         <AppCard elevation="card" style={styles.infoCard}>
           <View style={styles.settingRow}>
@@ -269,7 +286,7 @@ export function ProfilePage() {
               value={tempUnitCelsius}
               onValueChange={setTempUnitCelsius}
               trackColor={{ false: colors.surfaceBorder, true: colors.primary }}
-              thumbColor={colors.surface}
+              thumbColor={colors.cardSurface}
             />
           </View>
         </AppCard>
@@ -277,7 +294,7 @@ export function ProfilePage() {
         {/* Sign Out Action */}
         <View style={styles.signOutSection}>
           <AppButton
-            title={isSigningOut ? '...' : t('signOut')}
+            title={isSigningOut ? 'Signing out...' : t('signOut')}
             variant="outline"
             size="md"
             iconName="log-out-outline"
@@ -288,10 +305,10 @@ export function ProfilePage() {
           />
         </View>
 
-        <Text style={styles.versionText}>HoneyChain v1.0.0</Text>
+        <Text style={styles.versionText}>HoneyChain v1.0.0 • Pure Honey Traceability</Text>
       </ScrollView>
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile Bottom Sheet Modal */}
       <Modal
         visible={editModalVisible}
         animationType="slide"
@@ -301,16 +318,20 @@ export function ProfilePage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Beekeeper Profile</Text>
+              <View>
+                <Text style={styles.modalTitle}>Edit Beekeeper Profile</Text>
+                <Text style={styles.modalSubtitle}>Update your apiary and location details</Text>
+              </View>
               <TouchableOpacity
                 onPress={() => setEditModalVisible(false)}
                 style={styles.modalCloseButton}
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t('nameLabel')}</Text>
                 <TextInput
@@ -351,7 +372,7 @@ export function ProfilePage() {
                     style={styles.textInput}
                     value={formDistrict}
                     onChangeText={setFormDistrict}
-                    placeholder="e.g. Mandya"
+                    placeholder="e.g. Kodagu"
                     placeholderTextColor={colors.textMuted}
                   />
                 </View>
@@ -360,36 +381,43 @@ export function ProfilePage() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t('beekeeperCategory')}</Text>
                 <View style={styles.entityOptionsRow}>
-                  {ENTITY_OPTIONS.map((opt) => (
-                    <TouchableOpacity
-                      key={opt.value}
-                      style={[
-                        styles.entityChip,
-                        formEntityType === opt.value && styles.entityChipActive,
-                      ]}
-                      onPress={() => setFormEntityType(opt.value)}
-                    >
-                      <Text
+                  {ENTITY_OPTIONS.map((opt) => {
+                    const isActive = formEntityType === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
                         style={[
-                          styles.entityChipText,
-                          formEntityType === opt.value && styles.entityChipTextActive,
+                          styles.entityChip,
+                          isActive && styles.entityChipActive,
                         ]}
+                        onPress={() => setFormEntityType(opt.value)}
+                        activeOpacity={0.75}
                       >
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={[
+                            styles.entityChipText,
+                            isActive && styles.entityChipTextActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                        {isActive && (
+                          <Ionicons name="checkmark-circle" size={14} color={colors.primaryDark} style={{ marginLeft: 4 }} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
               <AppButton
-                title={isUpdating ? t('loading') : t('saveProfile')}
+                title={isUpdating ? t('loading') : (t('saveProfile') || 'Save Profile Details')}
                 variant="primary"
                 size="lg"
                 loading={isUpdating}
                 disabled={isUpdating}
                 onPress={handleSaveProfile}
-                style={{ marginTop: spacing.md, marginBottom: spacing.xl }}
+                style={styles.saveProfileModalBtn}
               />
             </ScrollView>
           </View>
@@ -403,11 +431,39 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing.md,
   },
-  profileCard: {
-    marginBottom: spacing.lg,
-    padding: spacing.lg,
+  screenTitle: {
+    fontSize: typography.size.xxl,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
-  profileHeader: {
+  sectionSubtitle: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  heroCard: {
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceBorder,
+    position: 'relative',
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  heroPatternWrapper: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+  },
+  heroBotanicalWrapper: {
+    position: 'absolute',
+    bottom: 8,
+    right: 12,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -420,7 +476,9 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 2,
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -428,113 +486,127 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceSecondary,
   },
   avatarInitials: {
     fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
-    color: colors.surface,
+    color: colors.primaryDark,
   },
   cameraIconBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -2,
+    right: -2,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: colors.cardSurface,
   },
-  row: {
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
   },
   beekeeperName: {
-    fontSize: typography.size.md + 2,
+    fontSize: typography.size.lg,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 6,
+    backgroundColor: colors.surfaceSecondary,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    gap: 3,
+    borderRadius: borderRadius.full,
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
-  verifiedText: {
+  verifiedBadgeText: {
     fontSize: 10,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  beekeeperRole: {
-    fontSize: typography.size.xs + 1,
-    color: colors.textSecondary,
-    textTransform: 'capitalize',
-    marginTop: 1,
+    color: colors.sage,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   beekeeperPhone: {
     fontSize: typography.size.xs,
-    color: colors.textMuted,
-    marginTop: 2,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   editProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: borderRadius.md,
     gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   editProfileButtonText: {
     fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.semibold,
-    color: colors.primary,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
   sectionHeader: {
     fontSize: typography.size.sm + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     marginBottom: spacing.xs + 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   infoCard: {
     marginBottom: spacing.lg,
     padding: spacing.md,
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    ...shadows.card,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
     gap: spacing.md,
   },
   infoIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.surfaceSubtle,
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   infoLabel: {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
+    fontWeight: typography.weight.medium,
   },
   infoValue: {
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     marginTop: 1,
   },
   uidText: {
-    fontSize: typography.size.xs - 1,
+    fontSize: typography.size.xs,
     color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginTop: 1,
@@ -543,27 +615,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
   },
   settingTitle: {
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   settingSubtitle: {
-    fontSize: typography.size.xs - 1,
+    fontSize: typography.size.xs,
     color: colors.textSecondary,
     marginTop: 2,
   },
   signOutSection: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     marginBottom: spacing.md,
   },
   signOutBtn: {
     width: '100%',
     borderColor: colors.status.critical.border,
+    backgroundColor: colors.cardSurface,
   },
   versionText: {
     fontSize: 11,
@@ -573,66 +646,90 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(45, 33, 21, 0.55)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: spacing.lg,
-    maxHeight: '85%',
+    maxHeight: '88%',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderBottomWidth: 0,
+    ...shadows.modal,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceBorder,
   },
   modalTitle: {
-    fontSize: typography.size.md + 1,
+    fontSize: typography.size.lg,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
+  modalSubtitle: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   modalCloseButton: {
-    padding: spacing.xs,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   inputGroup: {
     marginBottom: spacing.md,
   },
   inputLabel: {
-    fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.semibold,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   textInput: {
-    height: 46,
-    borderWidth: 1,
+    height: 48,
+    borderWidth: 1.5,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     fontSize: typography.size.sm,
     color: colors.textPrimary,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.cardSurface,
   },
   rowInputs: {
     flexDirection: 'row',
   },
   entityOptionsRow: {
-    gap: spacing.xs,
+    gap: spacing.xs + 2,
   },
   entityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.cardSurface,
   },
   entityChipActive: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceSecondary,
     borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   entityChipText: {
     fontSize: typography.size.xs + 1,
@@ -640,8 +737,18 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.medium,
   },
   entityChipTextActive: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: typography.weight.bold,
+  },
+  saveProfileModalBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
 });
 
