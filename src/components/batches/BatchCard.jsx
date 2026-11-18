@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { spacing, borderRadius, typography } from '../../constants/layout';
+import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
 import AppCard from '../common/AppCard';
 import StatusBadge from '../common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
@@ -21,13 +21,13 @@ export function BatchCard({ batch, onPress }) {
       elevation="card"
       style={styles.card}
       onPress={() => onPress && onPress(batch)}
-      activeOpacity={0.8}
+      activeOpacity={0.82}
     >
       {/* Header: Batch ID & Stage Status */}
       <View style={styles.topRow}>
         <View style={styles.batchIdGroup}>
           <View style={styles.amberBadge}>
-            <Ionicons name="cube-outline" size={12} color={colors.accentDeep} />
+            <Ionicons name="cube-outline" size={13} color={colors.primaryDark} />
             <Text style={styles.batchIdText}>{displayId}</Text>
           </View>
           {batch.batchCode && batch.id !== batch.batchCode && (
@@ -58,8 +58,8 @@ export function BatchCard({ batch, onPress }) {
         <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Net Quantity</Text>
           <View style={styles.row}>
-            <Ionicons name="cube-outline" size={13} color={colors.primary} style={{ marginRight: 3 }} />
-            <Text style={[styles.detailValue, { color: colors.primary, fontWeight: typography.weight.bold }]}>
+            <Ionicons name="cube-outline" size={13} color={colors.primaryDark} style={{ marginRight: 3 }} />
+            <Text style={[styles.detailValue, { color: colors.primaryDark, fontWeight: typography.weight.bold }]}>
               {quantity} {batch.unit || 'kg'}
             </Text>
           </View>
@@ -81,7 +81,7 @@ export function BatchCard({ batch, onPress }) {
         </View>
       </View>
 
-      {/* Origin Hives & Stage Progress */}
+      {/* Origin Hives & Action */}
       <View style={styles.footerRow}>
         <View style={styles.originTag}>
           <Text style={styles.originLabel}>Origin: </Text>
@@ -90,7 +90,7 @@ export function BatchCard({ batch, onPress }) {
 
         <View style={styles.timelineHint}>
           <Text style={styles.timelineHintText}>View Record</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.accentDeep} />
+          <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
         </View>
       </View>
     </AppCard>
@@ -101,6 +101,10 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.md + 2,
     marginBottom: spacing.md,
+    borderRadius: borderRadius.xl,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surface,
+    ...shadows.card,
   },
   topRow: {
     flexDirection: 'row',
@@ -118,20 +122,23 @@ const styles = StyleSheet.create({
   amberBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.backgroundSecondary,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
     gap: 4,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   batchIdText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.accentDeep,
+    color: colors.primaryDark,
+    letterSpacing: 0.5,
   },
   batchCodeText: {
     fontSize: typography.size.xs - 1,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   floralTitle: {
     fontSize: typography.size.md + 1,
@@ -142,21 +149,22 @@ const styles = StyleSheet.create({
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   detailItem: {
     flex: 1,
   },
   detailLabel: {
     fontSize: 10,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    fontWeight: typography.weight.medium,
   },
   detailValue: {
     fontSize: typography.size.xs + 1,
@@ -171,6 +179,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 2,
   },
   originTag: {
     flexDirection: 'row',
@@ -179,13 +188,15 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   originLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textMuted,
+    fontSize: typography.size.xs - 1,
+    color: colors.textSecondary,
+    fontWeight: typography.weight.medium,
   },
   originValue: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs - 1,
+    color: colors.textPrimary,
     fontWeight: typography.weight.semibold,
-    color: colors.textSecondary,
+    flexShrink: 1,
   },
   timelineHint: {
     flexDirection: 'row',
@@ -193,9 +204,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   timelineHintText: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs - 1,
     fontWeight: typography.weight.bold,
-    color: colors.accentDeep,
+    color: colors.primaryDark,
   },
 });
 

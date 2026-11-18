@@ -66,7 +66,7 @@ export function QRCodeModal({
               <Text style={styles.subtitle}>Batch: {batchCode}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={colors.textPrimary} />
+              <Ionicons name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -76,14 +76,14 @@ export function QRCodeModal({
               <View style={styles.qrCard}>
                 <QRCode
                   value={verificationUrl}
-                  size={200}
+                  size={190}
                   color={colors.textPrimary}
-                  backgroundColor={colors.surface}
+                  backgroundColor="#FFFFFF"
                 />
               </View>
 
               <View style={styles.codePill}>
-                <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
+                <Ionicons name="shield-checkmark" size={14} color={colors.primaryDark} />
                 <Text style={styles.codeText}>{batchCode}</Text>
               </View>
 
@@ -96,7 +96,7 @@ export function QRCodeModal({
             <View style={styles.metaCard}>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Floral Source</Text>
-                <Text style={styles.metaValue}>{batch.honeyType}</Text>
+                <Text style={styles.metaValue}>{batch.honeyType || 'Raw Honey'}</Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Harvest Date</Text>
@@ -135,7 +135,7 @@ export function QRCodeModal({
                     onClose();
                     onPreviewVerification(batchCode);
                   }}
-                  style={{ width: '100%', marginBottom: spacing.xs }}
+                  style={{ width: '100%', marginBottom: spacing.sm }}
                 />
               )}
 
@@ -145,7 +145,7 @@ export function QRCodeModal({
                 variant="outline"
                 size="md"
                 onPress={handleShare}
-                style={{ width: '100%', marginBottom: spacing.xs }}
+                style={{ width: '100%', marginBottom: spacing.sm }}
               />
 
               <AppButton
@@ -165,14 +165,16 @@ export function QRCodeModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(73, 61, 50, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '90%',
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
+    maxHeight: '92%',
+    borderTopWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   header: {
     flexDirection: 'row',
@@ -183,8 +185,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
     backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
   },
   title: {
     fontSize: typography.size.md + 1,
@@ -198,6 +200,10 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   scrollBody: {
     padding: spacing.lg,
@@ -209,8 +215,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   qrCard: {
-    padding: spacing.md,
-    backgroundColor: colors.surface,
+    padding: spacing.md + 2,
+    backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
@@ -220,24 +226,24 @@ const styles = StyleSheet.create({
   codePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.backgroundSecondary,
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.softAmber,
     gap: 6,
     marginBottom: 4,
   },
   codeText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
     letterSpacing: 1,
   },
   urlText: {
     fontSize: typography.size.xs - 1,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     maxWidth: 260,
   },
   metaCard: {
@@ -248,6 +254,7 @@ const styles = StyleSheet.create({
     borderColor: colors.surfaceBorder,
     padding: spacing.md,
     marginBottom: spacing.md,
+    ...shadows.sm,
   },
   metaRow: {
     flexDirection: 'row',
@@ -255,7 +262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs + 2,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
+    borderBottomColor: colors.borderLight,
   },
   metaLabel: {
     fontSize: typography.size.xs,

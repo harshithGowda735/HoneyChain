@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
-import { spacing, borderRadius, typography } from '../constants/layout';
+import { spacing, borderRadius, typography, shadows } from '../constants/layout';
 import { globalStyles } from '../styles/globalStyles';
 import SchemeCard from '../components/schemes/SchemeCard';
 import SchemeDetailModal from '../components/schemes/SchemeDetailModal';
@@ -98,7 +98,7 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
   const userState = (currentUser?.state || userProfile?.state || 'Karnataka').trim();
   const userStateLower = userState.toLowerCase();
 
-  // Automatic state & Central government matching (no manual filters needed)
+  // Automatic state & Central government matching
   const filteredSchemes = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -144,13 +144,13 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
       <View style={styles.topBar}>
         {onBack && (
           <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            <Ionicons name="arrow-back" size={22} color={colors.primaryDark} />
           </TouchableOpacity>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={styles.pageTitle}>Government Schemes</Text>
+          <Text style={styles.pageTitle}>{t('tabSchemes', 'Government Schemes')}</Text>
           <Text style={styles.pageSubtitle}>
-            Subsidies & grants for beekeepers
+            Subsidies, grants & equipment support for beekeepers
           </Text>
         </View>
       </View>
@@ -162,32 +162,32 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
       >
         {/* Auto Location & Central Government Match Banner */}
         <View style={styles.autoLocationBanner}>
           <View style={styles.locationIconBox}>
-            <Ionicons name="location" size={18} color={colors.primary} />
+            <Ionicons name="location" size={18} color={colors.primaryDark} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.autoLocationTitle}>
-              {userState} & Central Schemes
+              {userState} & Central Government Schemes
             </Text>
             <Text style={styles.autoLocationSub}>
-              Matched to your registered location
+              Automatically filtered for your registered farm location
             </Text>
           </View>
         </View>
 
         {/* Search Input Box */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
+          <Ionicons name="search-outline" size={18} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder={t('searchSchemesPlaceholder')}
+            placeholder={t('searchSchemesPlaceholder', 'Search schemes...')}
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -203,8 +203,8 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
         {/* Schemes List */}
         {loading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading...</Text>
+            <ActivityIndicator size="large" color={colors.primaryDark} />
+            <Text style={styles.loadingText}>Loading verified schemes...</Text>
           </View>
         ) : filteredSchemes.length > 0 ? (
           <View style={styles.schemesList}>
@@ -226,17 +226,16 @@ export function SchemesPage({ onBack, hivesCount = 0 }) {
           </View>
         ) : (
           <EmptyState
-            icon="search-outline"
-            title={t('noSchemesFound')}
-            message={
+            title={t('noSchemesFound', 'No government schemes found')}
+            description={
               language === 'kn'
                 ? 'ಯಾವುದೇ ಯೋಜನೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ. "NBHM", "ಪೆಟ್ಟಿಗೆ", ಅಥವಾ "ಸಬ್ಸಿಡಿ" ಎಂದು ಹುಡುಕಿ ನೋಡಿ.'
                 : language === 'hi'
                 ? 'कोई सरकारी योजना नहीं मिली। "NBHM", "बॉक्सेस" या "सब्सिडी" खोजें।'
                 : 'No government schemes matched your search. Try searching for "MIDH", "NBHM", or "boxes".'
             }
-            actionLabel={searchQuery ? (language === 'kn' ? 'ಹುಡುಕಾಟ ತೆರವುಗೊಳಿಸಿ' : language === 'hi' ? 'खोज साफ़ करें' : 'Clear Search') : undefined}
-            onAction={searchQuery ? () => setSearchQuery('') : undefined}
+            actionTitle={searchQuery ? 'Clear Search' : undefined}
+            onActionPress={searchQuery ? () => setSearchQuery('') : undefined}
           />
         )}
       </ScrollView>
@@ -259,85 +258,78 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
   backButton: {
     padding: spacing.xs,
-    marginLeft: -spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   pageTitle: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.xxxl,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
   pageSubtitle: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl + 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xxxl + 32,
   },
   autoLocationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FCF8ED',
-    borderWidth: 1,
-    borderColor: '#F0E6D2',
-    borderRadius: borderRadius.md,
-    padding: spacing.sm + 2,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
     gap: spacing.sm,
+    ...shadows.sm,
   },
   locationIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primarySoft,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   autoLocationTitle: {
     fontSize: typography.size.xs + 1,
     fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
+    color: colors.primaryDark,
   },
   autoLocationSub: {
-    fontSize: 11,
+    fontSize: typography.size.xs - 1,
     color: colors.textSecondary,
     marginTop: 1,
-  },
-  autoMatchBadge: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: borderRadius.sm,
-  },
-  autoMatchBadgeText: {
-    fontSize: 9,
-    fontWeight: typography.weight.bold,
-    color: colors.textInverse,
-    letterSpacing: 0.4,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     height: 44,
     marginBottom: spacing.md,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
   },
   searchInput: {
     flex: 1,
@@ -345,12 +337,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   clearSearchBtn: {
-    padding: spacing.xs,
+    padding: 2,
   },
   loadingBox: {
+    paddingVertical: spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxl,
     gap: spacing.sm,
   },
   loadingText: {
@@ -358,7 +350,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   schemesList: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
 });
 

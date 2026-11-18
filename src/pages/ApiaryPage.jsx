@@ -19,6 +19,7 @@ import AppButton from '../components/common/AppButton';
 import AppCard from '../components/common/AppCard';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
+import HiveCard from '../components/hives/HiveCard';
 import HiveWeightTrendChart from '../components/telemetry/HiveWeightTrendChart';
 import HiveMaintenanceModal from '../components/hives/HiveMaintenanceModal';
 import RecordHarvestModal from '../components/batches/RecordHarvestModal';
@@ -31,6 +32,10 @@ import {
 import { saveHiveMaintenance, getHiveMaintenanceStatus } from '../services/maintenanceService';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { BeehiveIllustration } from '../components/illustrations/BeehiveIllustration';
+import { EmptyApiaryIllustration } from '../components/illustrations/EmptyApiaryIllustration';
+import { HoneyJarIllustration } from '../components/illustrations/HoneyJarIllustration';
+import { HoneycombPattern } from '../components/illustrations/HoneycombPattern';
 
 export function ApiaryPage({
   hives = [],
@@ -51,6 +56,10 @@ export function ApiaryPage({
   const { user } = useAuth();
   const { t } = useLanguage();
 
+  // Active Tab within Apiary: 'colonies' | 'harvests'
+  const [activeSubTab, setActiveSubTab] = useState('colonies');
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Active Selected Hive & Batch for detail modals
   const [selectedHive, setSelectedHive] = useState(null);
   const [selectedHiveReadings, setSelectedHiveReadings] = useState([]);
@@ -62,7 +71,6 @@ export function ApiaryPage({
     if (selectedHive?.id && user?.uid) {
       getRecentHiveReadings(selectedHive.id, user.uid, 50).then((list) => {
         if (isMounted) {
-          // If no readings in subcollection but hive has weight property, create baseline
           if (list.length === 0 && (typeof selectedHive.weight === 'number' || typeof selectedHive.latestWeight === 'number')) {
             setSelectedHiveReadings([
               {
@@ -89,7 +97,6 @@ export function ApiaryPage({
   const [addHiveModalVisible, setAddHiveModalVisible] = useState(false);
   const [recordHarvestVisible, setRecordHarvestVisible] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
-  const [batchDetailVisible, setBatchDetailVisible] = useState(false);
   const [addReadingModalVisible, setAddReadingModalVisible] = useState(false);
   const [maintenanceModalVisible, setMaintenanceModalVisible] = useState(false);
 
@@ -115,6 +122,30 @@ export function ApiaryPage({
 
   // Batch for QR viewing
   const [activeQrBatch, setActiveQrBatch] = useState(null);
+
+  // Filtered Hives based on search query
+  const filteredHives = useMemo(() => {
+    if (!searchQuery.trim()) return hives;
+    const q = searchQuery.toLowerCase().trim();
+    return hives.filter(
+      (h) =>
+        (h.name && h.name.toLowerCase().includes(q)) ||
+        (h.location && h.location.toLowerCase().includes(q)) ||
+        (h.id && h.id.toLowerCase().includes(q))
+    );
+  }, [hives, searchQuery]);
+
+  // Filtered Batches based on search query
+  const filteredBatches = useMemo(() => {
+    if (!searchQuery.trim()) return batches;
+    const q = searchQuery.toLowerCase().trim();
+    return batches.filter(
+      (b) =>
+        (b.honeyType && b.honeyType.toLowerCase().includes(q)) ||
+        (b.batchCode && b.batchCode.toLowerCase().includes(q)) ||
+        (b.hiveName && b.hiveName.toLowerCase().includes(q))
+    );
+  }, [batches, searchQuery]);
 
   // 1. Hive Form Handlers
   const handleOpenAddHive = (hiveToEdit = null) => {
@@ -266,7 +297,6 @@ export function ApiaryPage({
       };
       setSelectedHiveReadings((prev) => [newReadingItem, ...prev]);
 
-      // Update in-memory selectedHive reading
       setSelectedHive((prev) => ({
         ...prev,
         latestWeight: weightNum !== null ? weightNum : prev.latestWeight,
@@ -288,15 +318,6 @@ export function ApiaryPage({
     }
   };
 
-  // 3. Harvest Submission
-  const handleHarvestCreated = (newBatch) => {
-    setRecordHarvestVisible(false);
-    if (newBatch) {
-      setActiveQrBatch(newBatch);
-      setQrModalVisible(true);
-    }
-  };
-
   return (
     <View style={globalStyles.screenContainer}>
       <ScrollView
@@ -306,30 +327,65 @@ export function ApiaryPage({
           <RefreshControl
             refreshing={loading}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.primaryDark}
+            colors={[colors.primaryDark]}
           />
         }
       >
-        {/* Page Top Header */}
+        {/* Top Header Card */}
         <View style={styles.topHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={globalStyles.screenTitle}>My Apiary</Text>
-            <Text style={globalStyles.sectionSubtitle}>
-              {hives.length} Hives • {batches.length} Batches
-            </Text>
+          <View style={styles.headerTitleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.screenTitle}>{t('tabApiary', 'My Apiary')}</Text>
+              <Text style={styles.screenSubtitle}>
+                {hives.length} Colonies • {batches.length} Certified Batches
+              </Text>
+            </View>
+
+            {onOpenScanner && (
+              <TouchableOpacity
+                onPress={onOpenScanner}
+                style={styles.scanHeaderBtn}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="qr-code-outline" size={16} color={colors.primaryDark} />
+                <Text style={styles.scanHeaderBtnText}>Scan Jar</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {onOpenScanner && (
+          {/* Sub-Tabs: Colonies vs Honey Harvests */}
+          <View style={styles.tabPillContainer}>
             <TouchableOpacity
-              onPress={onOpenScanner}
-              style={styles.scanHeaderBtn}
+              style={[styles.tabPill, activeSubTab === 'colonies' && styles.tabPillActive]}
+              onPress={() => setActiveSubTab('colonies')}
               activeOpacity={0.8}
             >
-              <Ionicons name="qr-code-outline" size={18} color={colors.primary} />
-              <Text style={styles.scanHeaderBtnText}>Scan Jar</Text>
+              <Ionicons
+                name="cube"
+                size={15}
+                color={activeSubTab === 'colonies' ? colors.primaryDark : colors.textSecondary}
+              />
+              <Text style={[styles.tabPillText, activeSubTab === 'colonies' && styles.tabPillTextActive]}>
+                Colonies ({hives.length})
+              </Text>
             </TouchableOpacity>
-          )}
+
+            <TouchableOpacity
+              style={[styles.tabPill, activeSubTab === 'harvests' && styles.tabPillActive]}
+              onPress={() => setActiveSubTab('harvests')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="leaf"
+                size={15}
+                color={activeSubTab === 'harvests' ? colors.primaryDark : colors.textSecondary}
+              />
+              <Text style={[styles.tabPillText, activeSubTab === 'harvests' && styles.tabPillTextActive]}>
+                Harvests ({batches.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Global Error Banner */}
@@ -341,275 +397,164 @@ export function ApiaryPage({
         ) : null}
 
         {/* =========================================================================
-            SECTION A: MY HIVES
+            TAB 1: COLONIES
            ========================================================================= */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleWithCount}>
-              <Text style={styles.sectionTitle}>My Hives</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{hives.length}</Text>
+        {activeSubTab === 'colonies' && (
+          <View style={styles.tabContent}>
+            {/* Search & Add Action Bar */}
+            <View style={styles.actionBarRow}>
+              <View style={styles.searchBarWrap}>
+                <Ionicons name="search" size={16} color={colors.textSecondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={t('searchHivesPlaceholder', 'Search colonies...')}
+                  placeholderTextColor={colors.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery ? (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
-            </View>
 
-            <TouchableOpacity
-              onPress={() => handleOpenAddHive()}
-              style={styles.addSmallBtn}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color={colors.surface} />
-              <Text style={styles.addSmallBtnText}>Add Hive</Text>
-            </TouchableOpacity>
-          </View>
-
-          {hives.length === 0 && !loading ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="grid-outline" size={28} color={colors.textMuted} />
-              <Text style={styles.emptyCardTitle}>No hives registered yet</Text>
-              <Text style={styles.emptyCardSub}>
-                Add your first hive to track weight and harvests.
-              </Text>
               <TouchableOpacity
                 onPress={() => handleOpenAddHive()}
-                style={styles.emptyActionBtn}
+                style={styles.addColonyBtn}
+                activeOpacity={0.85}
               >
-                <Text style={styles.emptyActionBtnText}>Register First Hive</Text>
+                <Ionicons name="add" size={18} color="#FFFFFF" />
+                <Text style={styles.addColonyBtnText}>Add Colony</Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.hivesList}>
-              {hives.map((hive) => {
-                const sensorStatus = determineSensorConnectionStatus(hive, {
-                  recordedAt: hive.updatedAt || hive.createdAt,
-                });
 
-                return (
-                  <TouchableOpacity
+            {/* Empty State with Hand-Drawn Illustration */}
+            {filteredHives.length === 0 && !loading ? (
+              <EmptyState
+                illustration={<EmptyApiaryIllustration size={140} />}
+                title={searchQuery ? 'No matching colonies' : t('noHivesFound', 'No colonies registered yet')}
+                description={
+                  searchQuery
+                    ? 'Try adjusting your search terms.'
+                    : 'Register your first hive colony to track weights, brood temperatures, and harvests.'
+                }
+                actionTitle={searchQuery ? 'Clear Search' : 'Register First Hive'}
+                onActionPress={() => (searchQuery ? setSearchQuery('') : handleOpenAddHive())}
+              />
+            ) : (
+              <View style={styles.hivesList}>
+                {filteredHives.map((hive) => (
+                  <HiveCard
                     key={hive.id}
-                    style={styles.hiveRowCard}
-                    activeOpacity={0.7}
+                    hive={hive}
                     onPress={() => setSelectedHive(hive)}
-                  >
-                    <View style={styles.hiveRowHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.hiveRowName}>{hive.name}</Text>
-                        <Text style={styles.hiveRowSub}>
-                          {hive.location || 'Apiary Yard'} • {hive.queenStatus || 'Queen Active'}
-                        </Text>
-                      </View>
-                      <StatusBadge status={hive.status || 'healthy'} />
-                    </View>
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
-                    {/* Sensor & Telemetry Metrics Strip */}
-                    <View style={styles.telemetryStrip}>
-                      <View style={styles.telemetryMetric}>
-                        <Ionicons name="speedometer-outline" size={13} color={colors.primary} />
-                        <Text style={styles.telemetryText}>
-                          {typeof hive.weight === 'number' || typeof hive.latestWeight === 'number'
-                            ? `${(hive.weight ?? hive.latestWeight).toFixed(1)} kg`
-                            : '-- kg'}
-                        </Text>
-                      </View>
+        {/* =========================================================================
+            TAB 2: HONEY HARVESTS & BATCHES
+           ========================================================================= */}
+        {activeSubTab === 'harvests' && (
+          <View style={styles.tabContent}>
+            {/* Action Bar */}
+            <View style={styles.harvestActionBar}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.harvestSectionTitle}>Extracted Honey Batches</Text>
+                <Text style={styles.harvestSectionSub}>Source-verified lots with QR codes</Text>
+              </View>
 
-                      <View style={styles.telemetryDivider} />
+              <AppButton
+                title={t('recordHarvestBtn', 'Log Harvest')}
+                iconName="add"
+                variant="primary"
+                size="sm"
+                onPress={() => {
+                  if (hives.length === 0) {
+                    Alert.alert(
+                      'No Colonies Available',
+                      'Please register at least one source hive colony before logging a harvest.'
+                    );
+                    return;
+                  }
+                  setRecordHarvestVisible(true);
+                }}
+              />
+            </View>
 
-                      <View style={styles.telemetryMetric}>
-                        <Ionicons name="thermometer-outline" size={13} color={colors.sensor.temp} />
-                        <Text style={styles.telemetryText}>
-                          {typeof hive.temperature === 'number' ? `${hive.temperature} °C` : '-- °C'}
-                        </Text>
-                      </View>
-
-                      <View style={styles.telemetryDivider} />
-
-                      <View style={styles.telemetryMetric}>
-                        <Ionicons name="water-outline" size={13} color={colors.sensor.humidity} />
-                        <Text style={styles.telemetryText}>
-                          {typeof hive.humidity === 'number' ? `${hive.humidity} %` : '-- %'}
-                        </Text>
-                      </View>
-
-                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                        <View
-                          style={[
-                            styles.sensorConnectionPill,
-                            { backgroundColor: sensorStatus.badgeBg },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.sensorConnectionText,
-                              { color: sensorStatus.badgeColor },
-                            ]}
-                          >
-                            {sensorStatus.label}
+            {filteredBatches.length === 0 && !loading ? (
+              <EmptyState
+                illustration={<HoneyJarIllustration size={100} />}
+                title={t('noBatchesFound', 'No honey batches recorded yet')}
+                description={t('noBatchesDesc', 'Tap "Log Harvest" to create your first traceable honey lot.')}
+                actionTitle="Log Harvest"
+                onActionPress={() => {
+                  if (hives.length === 0) {
+                    handleOpenAddHive();
+                  } else {
+                    setRecordHarvestVisible(true);
+                  }
+                }}
+              />
+            ) : (
+              <View style={styles.batchesList}>
+                {filteredBatches.map((batch) => {
+                  const batchCode = batch.batchCode || batch.id;
+                  return (
+                    <AppCard key={batch.id} elevation="card" style={styles.batchCard}>
+                      <View style={styles.batchTopRow}>
+                        <View style={styles.batchJarWrap}>
+                          <Ionicons name="leaf" size={18} color={colors.primaryDark} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.batchCodeRow}>
+                            <Text style={styles.batchCodeText}>{batchCode}</Text>
+                            <StatusBadge status={batch.stage || 'Completed'} size="sm" />
+                          </View>
+                          <Text style={styles.batchHoneyType}>
+                            {batch.honeyType || 'Multifloral Raw Honey'} • {batch.quantity || 0} kg
+                          </Text>
+                          <Text style={styles.batchDateText}>
+                            Extracted {formatDate(batch.harvestDate)} • Colony: {batch.hiveName || 'Apiary'}
                           </Text>
                         </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
 
-        {/* =========================================================================
-            SECTION B: HONEY HARVESTS
-           ========================================================================= */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleWithCount}>
-              <Text style={styles.sectionTitle}>Honey Harvests</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{batches.length}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => {
-                if (hives.length === 0) {
-                  Alert.alert(
-                    'No Colonies Available',
-                    'Please register at least one source hive colony before logging a harvest.'
-                  );
-                  return;
-                }
-                setRecordHarvestVisible(true);
-              }}
-              style={styles.harvestPrimaryBtn}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color={colors.surface} />
-              <Text style={styles.harvestPrimaryBtnText}>Record Harvest</Text>
-            </TouchableOpacity>
-          </View>
-
-          {batches.length === 0 && !loading ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="cube-outline" size={28} color={colors.textMuted} />
-              <Text style={styles.emptyCardTitle}>No harvests logged yet</Text>
-              <Text style={styles.emptyCardSub}>
-                Record honey to generate batch QR codes.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.recentHarvestsList}>
-              {batches.slice(0, 5).map((batch) => (
-                <View key={batch.id} style={styles.harvestRow}>
-                  <View style={styles.harvestIconCircle}>
-                    <Ionicons name="leaf" size={14} color={colors.accentDeep} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.harvestTitle}>
-                      {batch.honeyType || 'Pure Honey'} • {batch.quantity || 0} kg
-                    </Text>
-                    <Text style={styles.harvestSub}>
-                      Harvested {formatDate(batch.harvestDate)} • Colony: {batch.hiveName || 'Registered Hives'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setActiveQrBatch(batch);
-                      setQrModalVisible(true);
-                    }}
-                    style={styles.qrRowBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="qr-code-outline" size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* =========================================================================
-            SECTION C: HONEY TRACEABILITY
-           ========================================================================= */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>Honey Traceability</Text>
-              <Text style={styles.sectionSubtitle}>
-                Batch verification and jar QR codes
-              </Text>
-            </View>
-
-            {onOpenScanner && (
-              <TouchableOpacity
-                onPress={onOpenScanner}
-                style={styles.scanSecondaryBtn}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="camera-outline" size={14} color={colors.primary} />
-                <Text style={styles.scanSecondaryBtnText}>Scan QR</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {batches.length === 0 ? (
-            <View style={styles.traceabilityNoticeCard}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
-              <Text style={styles.traceabilityNoticeText}>
-                Batches and jar QR codes appear here after recording a harvest.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.batchesList}>
-              {batches.map((batch) => {
-                const batchCode = batch.batchCode || batch.id;
-                return (
-                  <View key={batch.id} style={styles.batchCard}>
-                    <View style={styles.batchCardTop}>
-                      <View style={{ flex: 1 }}>
-                        <View style={styles.batchCodeRow}>
-                          <Text style={styles.batchCodeText}>{batchCode}</Text>
-                          <View style={styles.verifiedRegistryPill}>
-                            <Text style={styles.verifiedRegistryText}>REGISTRY READY</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.batchMetaText}>
-                          {batch.honeyType} • {batch.quantity || 0} kg • {formatDate(batch.harvestDate)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.batchActionsRow}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setActiveQrBatch(batch);
-                          setQrModalVisible(true);
-                        }}
-                        style={styles.batchActionBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="qr-code" size={14} color={colors.primary} />
-                        <Text style={styles.batchActionBtnText}>Generate / View QR</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (onOpenPublicVerify) {
-                            onOpenPublicVerify(batchCode);
-                          } else {
+                      <View style={styles.batchActionsRow}>
+                        <TouchableOpacity
+                          style={styles.batchActionBtn}
+                          onPress={() => {
                             setActiveQrBatch(batch);
                             setQrModalVisible(true);
-                          }
-                        }}
-                        style={styles.batchActionOutlineBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="eye-outline" size={14} color={colors.textPrimary} />
-                        <Text style={styles.batchActionOutlineText}>Verify Jar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
+                          }}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons name="qr-code-outline" size={15} color={colors.primaryDark} />
+                          <Text style={styles.batchActionBtnText}>View QR Code</Text>
+                        </TouchableOpacity>
+
+                        {onOpenPublicVerify && (
+                          <TouchableOpacity
+                            style={styles.batchVerifyBtn}
+                            onPress={() => onOpenPublicVerify(batchCode)}
+                            activeOpacity={0.75}
+                          >
+                            <Ionicons name="checkmark-seal-outline" size={15} color={colors.sage} />
+                            <Text style={styles.batchVerifyBtnText}>Verify Certificate</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </AppCard>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* =========================================================================
@@ -626,22 +571,25 @@ export function ApiaryPage({
             {selectedHive && (
               <>
                 <View style={styles.modalHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle}>{selectedHive.name}</Text>
-                    <Text style={styles.modalSubtitle}>
-                      {selectedHive.location} • {selectedHive.queenStatus}
-                    </Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <BeehiveIllustration size={44} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.modalTitle}>{selectedHive.name}</Text>
+                      <Text style={styles.modalSubtitle}>
+                        {selectedHive.location || 'Apiary Yard'} • {selectedHive.queenStatus || 'Queen Active'}
+                      </Text>
+                    </View>
                   </View>
                   <TouchableOpacity
                     onPress={() => setSelectedHive(null)}
                     style={styles.closeBtn}
                   >
-                    <Ionicons name="close" size={22} color={colors.textPrimary} />
+                    <Ionicons name="close" size={20} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollBody}>
-                  {/* Status Banner */}
+                  {/* Four Core Metric Chips */}
                   <View style={styles.detailStatsRow}>
                     <View style={styles.detailStatBox}>
                       <Text style={styles.detailStatValue}>{selectedHive.framesCount || 10}</Text>
@@ -649,16 +597,16 @@ export function ApiaryPage({
                     </View>
                     <View style={styles.detailStatBox}>
                       <Text style={styles.detailStatValue}>{selectedHive.honeySuperCount || 1}</Text>
-                      <Text style={styles.detailStatLabel}>Honey Supers</Text>
+                      <Text style={styles.detailStatLabel}>Supers</Text>
                     </View>
                     <View style={styles.detailStatBox}>
-                      <Text style={styles.detailStatValue}>
+                      <Text style={[styles.detailStatValue, { color: colors.primaryDark }]}>
                         {typeof selectedHive.temperature === 'number' ? `${selectedHive.temperature}°C` : '--'}
                       </Text>
-                      <Text style={styles.detailStatLabel}>Temp</Text>
+                      <Text style={styles.detailStatLabel}>Brood Temp</Text>
                     </View>
                     <View style={styles.detailStatBox}>
-                      <Text style={styles.detailStatValue}>
+                      <Text style={[styles.detailStatValue, { color: colors.sensor.humidity }]}>
                         {typeof selectedHive.humidity === 'number' ? `${selectedHive.humidity}%` : '--'}
                       </Text>
                       <Text style={styles.detailStatLabel}>Humidity</Text>
@@ -676,7 +624,7 @@ export function ApiaryPage({
                   <View style={styles.maintenanceDetailBox}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.maintenanceDetailTitle}>
-                        Colony Maintenance
+                        Bi-Weekly Inspection
                       </Text>
                       <Text style={styles.maintenanceDetailSub}>
                         Last inspected: {selectedHive.lastInspectedAt ? formatDate(selectedHive.lastInspectedAt) : 'None recorded'}
@@ -685,8 +633,9 @@ export function ApiaryPage({
                     <TouchableOpacity
                       style={styles.logChecklistBtn}
                       onPress={() => setMaintenanceModalVisible(true)}
+                      activeOpacity={0.8}
                     >
-                      <Ionicons name="clipboard-outline" size={14} color={colors.primary} />
+                      <Ionicons name="clipboard-outline" size={14} color={colors.primaryDark} />
                       <Text style={styles.logChecklistBtnText}>Log Inspection</Text>
                     </TouchableOpacity>
                   </View>
@@ -702,24 +651,27 @@ export function ApiaryPage({
                       style={{ flex: 1 }}
                     />
                     <AppButton
-                      title="Edit"
+                      title="Edit Colony"
                       iconName="create-outline"
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onPress={() => {
-                        const h = selectedHive;
-                        setSelectedHive(null);
-                        handleOpenAddHive(h);
+                        const hiveToEdit = selectedHive;
+                        handleOpenAddHive(hiveToEdit);
                       }}
-                    />
-                    <AppButton
-                      title="Delete"
-                      iconName="trash-outline"
-                      variant="danger"
-                      size="sm"
-                      onPress={() => handleDeleteHive(selectedHive.id)}
+                      style={{ flex: 1 }}
                     />
                   </View>
+
+                  {/* Delete Colony Button */}
+                  <TouchableOpacity
+                    onPress={() => handleDeleteHive(selectedHive.id)}
+                    style={styles.deleteHiveBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={15} color={colors.error} />
+                    <Text style={styles.deleteHiveText}>Delete Colony Record</Text>
+                  </TouchableOpacity>
                 </ScrollView>
               </>
             )}
@@ -728,88 +680,7 @@ export function ApiaryPage({
       </Modal>
 
       {/* =========================================================================
-          RECORD SCALE / TELEMETRY MODAL
-         ========================================================================= */}
-      <Modal
-        visible={addReadingModalVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setAddReadingModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.smallModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Scale Reading</Text>
-              <TouchableOpacity onPress={() => setAddReadingModalVisible(false)}>
-                <Ionicons name="close" size={20} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalFormBody}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Hive Weight (kg)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 26.5"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="decimal-pad"
-                  value={readingWeight}
-                  onChangeText={setReadingWeight}
-                />
-              </View>
-
-              <View style={styles.formRow}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Internal Temp (°C)</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="34.5"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                    value={readingTemp}
-                    onChangeText={setReadingTemp}
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Humidity (%)</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="55"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="number-pad"
-                    value={readingHumidity}
-                    onChangeText={setReadingHumidity}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Observation Notes</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Nectar flow, brood box weight..."
-                  placeholderTextColor={colors.textMuted}
-                  value={readingNotes}
-                  onChangeText={setReadingNotes}
-                />
-              </View>
-
-              <AppButton
-                title="Save Measurement"
-                variant="primary"
-                size="md"
-                loading={isSubmittingReading}
-                onPress={handleSaveReading}
-                style={{ marginTop: spacing.xs }}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* =========================================================================
-          ADD / EDIT HIVE MODAL
+          ADD / EDIT COLONY MODAL
          ========================================================================= */}
       <Modal
         visible={addHiveModalVisible}
@@ -820,38 +691,46 @@ export function ApiaryPage({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingHiveId ? 'Edit Colony' : 'Register New Colony'}
-              </Text>
-              <TouchableOpacity onPress={() => setAddHiveModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  {editingHiveId ? 'Edit Colony' : 'Register New Colony'}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Apiary hive box details and specifications
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAddHiveModalVisible(false)}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            {hiveFormError ? (
-              <View style={styles.formErrorBanner}>
-                <Ionicons name="alert-circle" size={16} color={colors.error} />
-                <Text style={styles.formErrorText}>{hiveFormError}</Text>
-              </View>
-            ) : null}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScrollBody}>
+              {hiveFormError ? (
+                <View style={styles.errorAlert}>
+                  <Ionicons name="alert-circle" size={16} color={colors.error} />
+                  <Text style={styles.errorAlertText}>{hiveFormError}</Text>
+                </View>
+              ) : null}
 
-            <ScrollView contentContainerStyle={styles.modalScrollBody} showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Colony / Hive Name *</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Colony Name / Box Label *</Text>
                 <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. Hive Alpha, Colony #4"
+                  style={styles.formInput}
+                  placeholder="e.g. Hive A1, Cauvery Queen Box"
                   placeholderTextColor={colors.textMuted}
                   value={formHiveName}
                   onChangeText={setFormHiveName}
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Yard Location *</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Yard or Apiary Location *</Text>
                 <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. North Apiary, Coffee Plantation"
+                  style={styles.formInput}
+                  placeholder="e.g. South Orchard, Stand #4"
                   placeholderTextColor={colors.textMuted}
                   value={formHiveLocation}
                   onChangeText={setFormHiveLocation}
@@ -859,10 +738,10 @@ export function ApiaryPage({
               </View>
 
               <View style={styles.formRow}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Frames Count</Text>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Total Frames</Text>
                   <TextInput
-                    style={styles.modalInput}
+                    style={styles.formInput}
                     placeholder="10"
                     placeholderTextColor={colors.textMuted}
                     keyboardType="number-pad"
@@ -870,10 +749,10 @@ export function ApiaryPage({
                     onChangeText={setFormFramesCount}
                   />
                 </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Honey Supers</Text>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Honey Supers</Text>
                   <TextInput
-                    style={styles.modalInput}
+                    style={styles.formInput}
                     placeholder="1"
                     placeholderTextColor={colors.textMuted}
                     keyboardType="number-pad"
@@ -883,22 +762,33 @@ export function ApiaryPage({
                 </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>ESP32 + HX711 Sensor Device ID (Optional)</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Queen Status</Text>
                 <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. ESP32-SCALE-001"
+                  style={styles.formInput}
+                  placeholder="e.g. Marked - Active, Virgin, Supersedure"
+                  placeholderTextColor={colors.textMuted}
+                  value={formQueenStatus}
+                  onChangeText={setFormQueenStatus}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Scale / ESP32 Device ID (Optional)</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. HC-ESP32-0042"
                   placeholderTextColor={colors.textMuted}
                   value={formDeviceId}
                   onChangeText={setFormDeviceId}
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Colony Notes</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Notes</Text>
                 <TextInput
-                  style={[styles.modalInput, { height: 60 }]}
-                  placeholder="Brood pattern, temperament..."
+                  style={[styles.formInput, { height: 70, textAlignVertical: 'top' }]}
+                  placeholder="Colony temperament, comb condition, pollen stores..."
                   placeholderTextColor={colors.textMuted}
                   multiline
                   value={formNotes}
@@ -907,49 +797,146 @@ export function ApiaryPage({
               </View>
 
               <AppButton
-                title={editingHiveId ? 'Update Hive Record' : 'Save & Register Hive'}
+                title={isSubmittingHive ? 'Saving Colony...' : 'Save Colony Record'}
                 variant="primary"
                 size="lg"
                 loading={isSubmittingHive}
                 onPress={handleSaveHive}
-                style={{ marginTop: spacing.sm }}
+                style={{ marginTop: spacing.md }}
               />
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* Global Record Harvest Modal */}
+      {/* =========================================================================
+          MANUAL SCALE / SENSOR READING MODAL
+         ========================================================================= */}
+      <Modal
+        visible={addReadingModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAddReadingModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Record Manual Measurement</Text>
+                <Text style={styles.modalSubtitle}>
+                  {selectedHive?.name} • Weight scale or manual inspection reading
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAddReadingModalVisible(false)}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScrollBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Colony Scale Weight (kg) *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. 28.5"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                  value={readingWeight}
+                  onChangeText={setReadingWeight}
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Brood Temp (°C)</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g. 34.8"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                    value={readingTemp}
+                    onChangeText={setReadingTemp}
+                  />
+                </View>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Humidity (%)</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g. 58"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                    value={readingHumidity}
+                    onChangeText={setReadingHumidity}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Observation Notes</Text>
+                <TextInput
+                  style={[styles.formInput, { height: 60, textAlignVertical: 'top' }]}
+                  placeholder="Weather conditions, honey super filling..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  value={readingNotes}
+                  onChangeText={setReadingNotes}
+                />
+              </View>
+
+              <AppButton
+                title={isSubmittingReading ? 'Saving...' : 'Save Measurement'}
+                variant="primary"
+                size="lg"
+                loading={isSubmittingReading}
+                onPress={handleSaveReading}
+                style={{ marginTop: spacing.md }}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Record Harvest Modal */}
       <RecordHarvestModal
         visible={recordHarvestVisible}
         hives={hives}
         onClose={() => setRecordHarvestVisible(false)}
-        onSubmitHarvest={onAddBatch}
-        onOpenAddHive={() => {
-          setRecordHarvestVisible(false);
-          handleOpenAddHive();
+        onSubmitHarvest={async (harvestPayload) => {
+          if (onAddBatch) {
+            const created = await onAddBatch(harvestPayload);
+            if (created) {
+              setActiveQrBatch(created);
+              setQrModalVisible(true);
+            }
+          }
         }}
-        onViewQrForBatch={(b) => handleHarvestCreated(b)}
       />
 
       {/* QR Code Modal */}
       <QRCodeModal
         visible={qrModalVisible}
         batch={activeQrBatch}
-        onClose={() => setQrModalVisible(false)}
+        onClose={() => {
+          setQrModalVisible(false);
+          setActiveQrBatch(null);
+        }}
         onPreviewVerification={(code) => {
           setQrModalVisible(false);
           if (onOpenPublicVerify) onOpenPublicVerify(code);
         }}
       />
 
-      {/* Hive Maintenance Checklist Modal */}
-      <HiveMaintenanceModal
-        visible={maintenanceModalVisible}
-        hive={selectedHive}
-        onClose={() => setMaintenanceModalVisible(false)}
-        onSaveMaintenance={handleSaveMaintenance}
-      />
+      {/* Hive Maintenance Modal */}
+      {selectedHive && (
+        <HiveMaintenanceModal
+          visible={maintenanceModalVisible}
+          hive={selectedHive}
+          onClose={() => setMaintenanceModalVisible(false)}
+          onSaveMaintenance={handleSaveMaintenance}
+        />
+      )}
     </View>
   );
 }
@@ -958,29 +945,229 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl + 16,
+    paddingBottom: spacing.xxxl + 32,
   },
   topHeader: {
+    marginBottom: spacing.md,
+  },
+  headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  screenTitle: {
+    fontSize: typography.size.xxxl,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  screenSubtitle: {
+    fontSize: typography.size.xs + 1,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   scanHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 6,
-    borderRadius: borderRadius.sm,
+    backgroundColor: colors.backgroundSecondary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderColor: colors.softAmber,
   },
   scanHeaderBtnText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
+  },
+  tabPillContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    gap: 4,
+  },
+  tabPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+    gap: 6,
+  },
+  tabPillActive: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+    ...shadows.sm,
+  },
+  tabPillText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
+    color: colors.textSecondary,
+  },
+  tabPillTextActive: {
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+  },
+  tabContent: {
+    marginTop: spacing.xs,
+  },
+  actionBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  searchBarWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    paddingHorizontal: spacing.md,
+    height: 42,
+    gap: spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: typography.size.xs + 1,
+    color: colors.textPrimary,
+  },
+  addColonyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    height: 42,
+    gap: 4,
+    ...shadows.sm,
+  },
+  addColonyBtnText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: '#FFFFFF',
+  },
+  hivesList: {
+    gap: spacing.xs,
+  },
+  harvestActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  harvestSectionTitle: {
+    fontSize: typography.size.sm + 1,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+  },
+  harvestSectionSub: {
+    fontSize: typography.size.xs - 1,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  batchesList: {
+    gap: spacing.xs,
+  },
+  batchCard: {
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.lg,
+  },
+  batchTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  batchJarWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+  },
+  batchCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  batchCodeText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+  },
+  batchHoneyType: {
+    fontSize: typography.size.xs + 1,
+    color: colors.primaryDark,
+    fontWeight: typography.weight.semibold,
+  },
+  batchDateText: {
+    fontSize: typography.size.xs - 1,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  batchActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceBorder,
+  },
+  batchActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.backgroundSecondary,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+  },
+  batchActionBtnText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+  },
+  batchVerifyBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.sageLight,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.sage,
+  },
+  batchVerifyBtnText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.sageDark,
   },
   errorAlert: {
     flexDirection: 'row',
@@ -998,342 +1185,33 @@ const styles = StyleSheet.create({
     color: colors.status.critical.text,
     flex: 1,
   },
-  sectionContainer: {
-    marginBottom: spacing.xl,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm + 2,
-  },
-  sectionTitleWithCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  sectionSubtitle: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  countBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-  },
-  countBadgeText: {
-    fontSize: 11,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  addSmallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 5,
-    borderRadius: borderRadius.sm,
-  },
-  addSmallBtnText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: colors.surface,
-  },
-  harvestPrimaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.accentDeep,
-    paddingHorizontal: spacing.sm + 4,
-    paddingVertical: 6,
-    borderRadius: borderRadius.sm,
-  },
-  harvestPrimaryBtnText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: colors.surface,
-  },
-  scanSecondaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-  },
-  scanSecondaryBtnText: {
-    fontSize: typography.size.xs,
-    color: colors.primary,
-    fontWeight: typography.weight.semibold,
-  },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: borderRadius.md,
-    padding: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  emptyCardTitle: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  emptyCardSub: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 16,
-    maxWidth: 280,
-  },
-  emptyActionBtn: {
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    backgroundColor: colors.primarySoft,
-    borderRadius: borderRadius.sm,
-  },
-  emptyActionBtnText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  hivesList: {
-    gap: spacing.sm,
-  },
-  hiveRowCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    padding: spacing.md,
-    ...shadows.card,
-  },
-  hiveRowHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs + 2,
-  },
-  hiveRowName: {
-    fontSize: typography.size.sm + 1,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  hiveRowSub: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  telemetryStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    borderRadius: borderRadius.sm,
-    marginTop: spacing.xs,
-    gap: 8,
-  },
-  telemetryMetric: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  telemetryDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: colors.borderLight,
-  },
-  telemetryText: {
-    fontSize: 11,
-    fontWeight: typography.weight.semibold,
-    color: colors.textPrimary,
-  },
-  sensorConnectionPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-  },
-  sensorConnectionText: {
-    fontSize: 9.5,
-    fontWeight: typography.weight.bold,
-  },
-  recentHarvestsList: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    overflow: 'hidden',
-  },
-  harvestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
-    gap: spacing.sm,
-  },
-  harvestIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  harvestTitle: {
-    fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  harvestSub: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  qrRowBtn: {
-    padding: spacing.xs,
-    backgroundColor: colors.primarySoft,
-    borderRadius: borderRadius.sm,
-  },
-  traceabilityNoticeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  traceabilityNoticeText: {
-    fontSize: typography.size.xs,
-    color: colors.primary,
-    flex: 1,
-    lineHeight: 16,
-  },
-  batchesList: {
-    gap: spacing.sm,
-  },
-  batchCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    padding: spacing.md,
-    ...shadows.card,
-  },
-  batchCardTop: {
-    marginBottom: spacing.xs + 2,
-  },
-  batchCodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  batchCodeText: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: colors.textPrimary,
-  },
-  verifiedRegistryPill: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-  },
-  verifiedRegistryText: {
-    fontSize: 9,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  batchMetaText: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-  },
-  batchActionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs + 2,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-  },
-  batchActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.primarySoft,
-    paddingVertical: 7,
-    borderRadius: borderRadius.sm,
-  },
-  batchActionBtnText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
-  },
-  batchActionOutlineBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    paddingVertical: 7,
-    borderRadius: borderRadius.sm,
-  },
-  batchActionOutlineText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.medium,
-    color: colors.textPrimary,
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(73, 61, 50, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.lg,
-    borderTopRightRadius: borderRadius.lg,
-    maxHeight: '90%',
-    padding: spacing.lg,
-  },
-  smallModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.xxl,
-    padding: spacing.lg,
-    ...shadows.elevated,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
+    maxHeight: '92%',
+    paddingBottom: spacing.xxl,
+    borderTopWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: spacing.sm,
+    padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
   },
   modalTitle: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.lg + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
@@ -1344,23 +1222,32 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   modalScrollBody: {
-    paddingVertical: spacing.md,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
   },
   detailStatsRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.md,
-    justifyContent: 'space-around',
   },
   detailStatBox: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm + 2,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    ...shadows.sm,
   },
   detailStatValue: {
-    fontSize: typography.size.md,
+    fontSize: typography.size.md + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
@@ -1372,83 +1259,84 @@ const styles = StyleSheet.create({
   maintenanceDetailBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     gap: spacing.sm,
+    ...shadows.sm,
   },
   maintenanceDetailTitle: {
-    fontSize: typography.size.xs + 1,
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   maintenanceDetailSub: {
-    fontSize: 11,
+    fontSize: typography.size.xs - 1,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   logChecklistBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.backgroundSecondary,
+    paddingHorizontal: spacing.sm + 2,
     paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   logChecklistBtnText: {
-    fontSize: 11,
+    fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   detailActionsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
-  modalFormBody: {
-    paddingTop: spacing.md,
+  deleteHiveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    gap: 4,
   },
-  inputGroup: {
-    marginBottom: spacing.sm + 2,
-  },
-  inputLabel: {
+  deleteHiveText: {
     fontSize: typography.size.xs,
+    color: colors.error,
     fontWeight: typography.weight.semibold,
-    color: colors.textPrimary,
-    marginBottom: 4,
   },
-  modalInput: {
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    fontSize: typography.size.sm,
-    color: colors.textPrimary,
+  formScrollBody: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
+  },
+  formGroup: {
+    marginBottom: spacing.md,
   },
   formRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  formErrorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.status.critical.bg,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    marginTop: spacing.sm,
+  formLabel: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
-  formErrorText: {
-    fontSize: typography.size.xs,
-    color: colors.error,
+  formInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    fontSize: typography.size.sm,
+    color: colors.textPrimary,
   },
 });
 

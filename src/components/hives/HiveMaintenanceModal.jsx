@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
@@ -68,88 +67,120 @@ export function HiveMaintenanceModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Colony Maintenance Log</Text>
+              <Text style={styles.title}>Colony Inspection & Care</Text>
               <Text style={styles.subtitle}>
-                {hive.name} • {hive.location || 'Apiary'}
+                {hive.name} • {hive.location || 'Apiary Yard'}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={colors.textPrimary} />
+              <Ionicons name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollBody}
+          >
             {/* Task Type Switcher */}
             <View style={styles.typeSwitcher}>
-              {[
-                { key: 'both', label: 'Inspect & Clean' },
-                { key: 'inspection', label: 'Inspection Only' },
-                { key: 'cleaning', label: 'Cleaning Only' },
-              ].map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.typeOption, taskType === opt.key && styles.typeOptionActive]}
-                  onPress={() => setTaskType(opt.key)}
+              <TouchableOpacity
+                style={[styles.typeOption, taskType === 'inspection' && styles.typeOptionActive]}
+                onPress={() => setTaskType('inspection')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.typeOptionText,
+                    taskType === 'inspection' && styles.typeOptionTextActive,
+                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.typeOptionText,
-                      taskType === opt.key && styles.typeOptionTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                  Inspection
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.typeOption, taskType === 'cleaning' && styles.typeOptionActive]}
+                onPress={() => setTaskType('cleaning')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.typeOptionText,
+                    taskType === 'cleaning' && styles.typeOptionTextActive,
+                  ]}
+                >
+                  Cleaning
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.typeOption, taskType === 'both' && styles.typeOptionActive]}
+                onPress={() => setTaskType('both')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.typeOptionText,
+                    taskType === 'both' && styles.typeOptionTextActive,
+                  ]}
+                >
+                  Full Service
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Checklist */}
-            <Text style={styles.sectionTitle}>Verification Checklist</Text>
-            <View style={styles.checklistCard}>
-              {INSPECTION_CHECKLIST_ITEMS.map((item) => {
-                const isChecked = checklist[item.key] ?? false;
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    style={styles.checkItem}
-                    activeOpacity={0.7}
-                    onPress={() => toggleCheckItem(item.key)}
-                  >
-                    <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                      {isChecked && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-                    </View>
-                    <Text style={[styles.checkLabel, isChecked && styles.checkLabelChecked]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            {/* Checklist items */}
+            {taskType !== 'cleaning' && (
+              <View style={styles.checklistSection}>
+                <Text style={styles.sectionTitle}>Inspection Checklist</Text>
+                <View style={styles.checklistCard}>
+                  {INSPECTION_CHECKLIST_ITEMS.map((item) => {
+                    const isChecked = checklist[item.key] ?? false;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        style={styles.checkItem}
+                        onPress={() => toggleCheckItem(item.key)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                          {isChecked && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                        </View>
+                        <Text style={[styles.checkLabel, isChecked && styles.checkLabelChecked]}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Observation Notes */}
+            <View style={styles.notesSection}>
+              <Text style={styles.sectionTitle}>Observation Notes</Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Comb condition, pollen foraging rate, queen egg pattern..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                value={notes}
+                onChangeText={setNotes}
+              />
             </View>
 
-            {/* Notes */}
-            <Text style={styles.sectionTitle}>Observation Notes (Optional)</Text>
-            <TextInput
-              style={styles.notesInput}
-              placeholder="e.g. Brood pattern solid, 8 frames filled, added honey super."
-              placeholderTextColor={colors.textMuted}
-              multiline
-              numberOfLines={3}
-              value={notes}
-              onChangeText={setNotes}
-            />
-
-            {/* Submit Button */}
+            {/* Submit Action */}
             <AppButton
-              title={isSubmitting ? 'Recording...' : 'Mark Completed & Save'}
+              title={isSubmitting ? 'Saving...' : 'Save Inspection Log'}
               iconName="checkmark-circle-outline"
               variant="primary"
               size="lg"
+              loading={isSubmitting}
               onPress={handleSave}
-              disabled={isSubmitting}
               style={{ marginTop: spacing.md }}
             />
           </ScrollView>
@@ -162,27 +193,30 @@ export function HiveMaintenanceModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(73, 61, 50, 0.45)',
     justifyContent: 'flex-end',
   },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
+  container: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
     maxHeight: '90%',
-    ...shadows.modal,
+    borderTopWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceBorder,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
   },
   title: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.md + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
@@ -193,14 +227,19 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
-  body: {
-    paddingBottom: spacing.lg,
+  scrollBody: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
   },
   typeSwitcher: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
     padding: 3,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -210,10 +249,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 7,
     alignItems: 'center',
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
   },
   typeOptionActive: {
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
     ...shadows.sm,
   },
   typeOptionText: {
@@ -222,25 +263,26 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   typeOptionTextActive: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: typography.weight.bold,
+  },
+  checklistSection: {
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: typography.size.xs,
+    fontSize: typography.size.xs + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs + 2,
+    marginBottom: spacing.xs,
   },
   checklistCard: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    marginBottom: spacing.md,
+    ...shadows.sm,
   },
   checkItem: {
     flexDirection: 'row',
@@ -258,11 +300,11 @@ const styles = StyleSheet.create({
     borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   checkLabel: {
     fontSize: typography.size.xs,
@@ -273,9 +315,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: typography.weight.medium,
   },
+  notesSection: {
+    marginBottom: spacing.md,
+  },
   notesInput: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     padding: spacing.md,
@@ -283,8 +328,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlignVertical: 'top',
     minHeight: 70,
+    ...shadows.sm,
   },
 });
 
 export default HiveMaintenanceModal;
-
