@@ -11,7 +11,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 
 const NOTIFICATIONS_CACHE_KEY_PREFIX = '@honeychain_notifs_cache_';
 
@@ -67,6 +67,22 @@ export async function createNotification(uid, notificationData) {
     updatedAt: new Date().toISOString(),
   };
 
+  // Update local cache optimistically first
+  const cached = await getCachedNotifications(uid);
+  const existingIdx = cached.findIndex((n) => n.id === notifId);
+  let updatedCache;
+  if (existingIdx >= 0) {
+    updatedCache = [...cached];
+    updatedCache[existingIdx] = { ...updatedCache[existingIdx], ...notifDoc };
+  } else {
+    updatedCache = [notifDoc, ...cached].slice(0, 100);
+  }
+  await setCachedNotifications(uid, updatedCache);
+
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    return notifDoc;
+  }
+
   try {
     const notifRef = doc(db, 'users', uid, 'notifications', notifId);
     await setDoc(notifRef, {
@@ -75,24 +91,9 @@ export async function createNotification(uid, notificationData) {
       updatedAtServer: serverTimestamp(),
     }, { merge: true });
 
-    // Update local cache optimistically
-    const cached = await getCachedNotifications(uid);
-    const existingIdx = cached.findIndex((n) => n.id === notifId);
-    let updatedCache;
-    if (existingIdx >= 0) {
-      updatedCache = [...cached];
-      updatedCache[existingIdx] = { ...updatedCache[existingIdx], ...notifDoc };
-    } else {
-      updatedCache = [notifDoc, ...cached].slice(0, 100);
-    }
-    await setCachedNotifications(uid, updatedCache);
-
     return notifDoc;
   } catch (err) {
-    console.log('[NotificationService] Cloud save failed, saved to cache:', err?.message);
-    const cached = await getCachedNotifications(uid);
-    const updatedCache = [notifDoc, ...cached.filter((n) => n.id !== notifId)].slice(0, 100);
-    await setCachedNotifications(uid, updatedCache);
+    console.log('[NotificationService] Cloud save deferred:', err?.message);
     return notifDoc;
   }
 }
@@ -104,6 +105,9 @@ export async function getUserNotifications(uid, limitCount = 50) {
   if (!uid) return [];
 
   const cached = await getCachedNotifications(uid);
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    return cached;
+  }
 
   try {
     const notifsRef = collection(db, 'users', uid, 'notifications');

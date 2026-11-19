@@ -7,21 +7,32 @@ export function AppCard({
   children,
   onPress,
   style,
-  elevation = 'card', // 'card' | 'elevated' | 'flat'
+  elevation = 'card', // 'card' | 'elevated' | 'flat' | 'glow'
   noPadding = false,
-  activeOpacity = 0.7,
+  activeOpacity = 0.75,
+  variant = 'default', // 'default' | 'honey' | 'accent'
 }) {
   const shadowStyle =
     elevation === 'elevated'
       ? shadows.cardElevated
+      : elevation === 'glow'
+      ? shadows.glow
       : elevation === 'card'
       ? shadows.card
+      : null;
+
+  const variantStyle =
+    variant === 'honey'
+      ? styles.honeyVariant
+      : variant === 'accent'
+      ? styles.accentVariant
       : null;
 
   const cardStyle = [
     styles.card,
     !noPadding && styles.padding,
     shadowStyle,
+    variantStyle,
     style,
   ];
 
@@ -43,13 +54,21 @@ export function AppCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     marginBottom: spacing.md,
   },
+  honeyVariant: {
+    backgroundColor: colors.backgroundSecondary,
+    borderColor: colors.softAmber,
+  },
+  accentVariant: {
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.primary,
+  },
   padding: {
-    padding: spacing.md + 2,
+    padding: spacing.lg,
   },
 });
 

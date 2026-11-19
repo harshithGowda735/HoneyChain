@@ -12,6 +12,7 @@ import Svg, {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
+import { HoneyDropIllustration } from '../illustrations/HoneyDropIllustration';
 
 const TIME_RANGES = [
   { key: '7d', label: '7D', days: 7 },
@@ -20,14 +21,14 @@ const TIME_RANGES = [
 ];
 
 /**
- * Stock-Market Style Weight Trend Chart
+ * Stock-Market Style Hive Weight Trend Chart
  *
  * Visualizes colony scale accumulation like a financial stock chart:
- * - Dynamic Bullish (Emerald Green) vs Bearish (Market Red) colorway
- * - Gradient area fill under the trajectory
- * - Percentage and delta kg return pills
+ * - Dynamic Accumulation (Honey Gold / Sage) vs Depletion (Warm Terracotta)
+ * - Soft warm honey area fill under trajectory
+ * - Percentage & delta kg return pills
  * - High / Low price-level callouts
- * - Zero fabricated data: plots authentic measurements only.
+ * - Zero fabricated data: authentic Firestore readings only.
  */
 export function HiveWeightTrendChart({
   readings = [],
@@ -70,7 +71,7 @@ export function HiveWeightTrendChart({
     return filtered.length > 0 ? filtered : validReadings.slice(-12);
   }, [validReadings, selectedRange]);
 
-  // 3. Financial-style Trend & Return Analysis
+  // 3. Weight Accumulation Analysis
   const marketAnalysis = useMemo(() => {
     if (rangeReadings.length === 0) {
       return { status: 'no_data', deltaKg: 0, percentChange: 0, isBullish: true };
@@ -109,9 +110,9 @@ export function HiveWeightTrendChart({
     };
   }, [rangeReadings]);
 
-  // Dynamic Stock Market Theme Colors
-  const chartColor = marketAnalysis.isBullish ? '#10B981' : '#EF4444'; // Emerald Bull vs Market Bear
-  const chartSoftColor = marketAnalysis.isBullish ? '#E6F4EA' : '#FCE8E6';
+  // Warm Honey Colorway
+  const chartColor = marketAnalysis.isBullish ? colors.primaryDark : colors.error;
+  const chartSoftColor = marketAnalysis.isBullish ? colors.backgroundSecondary : colors.status.critical.bg;
 
   // 4. SVG Geometry
   const chartWidth = 330;
@@ -172,7 +173,7 @@ export function HiveWeightTrendChart({
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      {/* 1. Stock Market Ticker Header */}
+      {/* 1. Scale Ticker Header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <View style={styles.tickerRow}>
@@ -209,7 +210,7 @@ export function HiveWeightTrendChart({
           </View>
         </View>
 
-        {/* Time Filter Tabs (e.g. 7D | 30D | ALL) */}
+        {/* Time Filter Tabs (7D | 30D | ALL) */}
         {validReadings.length >= 2 && !compact && (
           <View style={styles.timeTabs}>
             {TIME_RANGES.map((rng) => {
@@ -219,7 +220,7 @@ export function HiveWeightTrendChart({
                   key={rng.key}
                   onPress={() => setSelectedRange(rng.key)}
                   style={[styles.timeTab, isSelected && styles.timeTabActive]}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                 >
                   <Text style={[styles.timeTabText, isSelected && styles.timeTabTextActive]}>
                     {rng.label}
@@ -231,7 +232,7 @@ export function HiveWeightTrendChart({
         )}
       </View>
 
-      {/* 2. Range High/Low Highlights (Financial Metric Strip) */}
+      {/* 2. Range High/Low Highlights */}
       {marketAnalysis.periodHigh !== undefined && !compact && (
         <View style={styles.metricStrip}>
           <Text style={styles.stripText}>
@@ -255,13 +256,13 @@ export function HiveWeightTrendChart({
         </View>
       )}
 
-      {/* 3. SVG Stock Chart Plot */}
+      {/* 3. SVG Trajectory Chart Plot */}
       {rangeReadings.length >= 2 ? (
         <View style={styles.chartBox}>
           <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
             <Defs>
-              <LinearGradient id="stockGradient" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0%" stopColor={chartColor} stopOpacity="0.32" />
+              <LinearGradient id="honeyTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor={chartColor} stopOpacity="0.30" />
                 <Stop offset="100%" stopColor={chartColor} stopOpacity="0.0" />
               </LinearGradient>
             </Defs>
@@ -277,7 +278,7 @@ export function HiveWeightTrendChart({
                     y1={yVal}
                     x2={chartWidth - paddingRight}
                     y2={yVal}
-                    stroke="#E5E7EB"
+                    stroke={colors.surfaceBorder}
                     strokeWidth="1"
                     strokeDasharray="3,3"
                   />
@@ -285,7 +286,7 @@ export function HiveWeightTrendChart({
                     x={paddingLeft - 6}
                     y={yVal + 3}
                     fontSize="9"
-                    fill={colors.textMuted}
+                    fill={colors.textSecondary}
                     textAnchor="end"
                   >
                     {weightVal}
@@ -295,9 +296,9 @@ export function HiveWeightTrendChart({
             })}
 
             {/* Area Gradient Fill */}
-            <Path d={areaD} fill="url(#stockGradient)" />
+            <Path d={areaD} fill="url(#honeyTrendGrad)" />
 
-            {/* Sharp Stock Market Trajectory Line */}
+            {/* Smooth Trajectory Line */}
             <Path
               d={pathD}
               fill="none"
@@ -320,7 +321,7 @@ export function HiveWeightTrendChart({
               />
             ))}
 
-            {/* Pulsing Live Marker at the Latest Endpoint */}
+            {/* Pulsing Live Marker at Latest Endpoint */}
             {latestPoint && (
               <>
                 <Circle
@@ -373,9 +374,9 @@ export function HiveWeightTrendChart({
           </Svg>
         </View>
       ) : (
-        /* Empty / Initial Baseline State */
+        /* Empty / Single Reading Initial State */
         <View style={styles.emptyCard}>
-          <Ionicons name="trending-up-outline" size={28} color={colors.textMuted} />
+          <HoneyDropIllustration size={36} />
           <Text style={styles.emptyTitle}>
             {validReadings.length === 1
               ? `Baseline Calibrated (${validReadings[0].weight.toFixed(1)} kg)`
@@ -383,7 +384,7 @@ export function HiveWeightTrendChart({
           </Text>
           <Text style={styles.emptyDesc}>
             {validReadings.length === 1
-              ? 'Subsequent scale measurements will generate the colony growth curve.'
+              ? 'Subsequent scale measurements will generate the colony accumulation curve.'
               : 'Record manual measurements or connect an ESP32 + HX711 scale.'}
           </Text>
           {onAddScaleReading && (
@@ -392,10 +393,24 @@ export function HiveWeightTrendChart({
               onPress={onAddScaleReading}
               activeOpacity={0.8}
             >
-              <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+              <Ionicons name="add-circle-outline" size={16} color={colors.primaryDark} />
               <Text style={styles.emptyActionText}>Add Scale Reading</Text>
             </TouchableOpacity>
           )}
+        </View>
+      )}
+
+      {/* 4. Action Bar */}
+      {onAddScaleReading && rangeReadings.length >= 2 && !compact && (
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.logReadingLink}
+            onPress={onAddScaleReading}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="add-circle" size={15} color={colors.primaryDark} />
+            <Text style={styles.logReadingText}>Record Manual Scale Reading</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -405,8 +420,8 @@ export function HiveWeightTrendChart({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md + 2,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     marginBottom: spacing.md,
@@ -414,25 +429,27 @@ const styles = StyleSheet.create({
   },
   containerCompact: {
     padding: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: 0,
+    borderWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: spacing.xs,
   },
   tickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   tickerBadge: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: typography.weight.bold,
-    color: colors.textMuted,
+    color: colors.primaryDark,
     letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   priceRow: {
     flexDirection: 'row',
@@ -440,34 +457,35 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   latestPriceText: {
-    fontSize: 26,
+    fontSize: typography.size.xxl,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   priceUnit: {
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.medium,
     color: colors.textSecondary,
-    marginRight: spacing.sm,
+    fontWeight: typography.weight.semibold,
+    marginRight: spacing.xs,
   },
   marketPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.full,
     gap: 3,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   marketPillText: {
-    fontSize: typography.size.xs - 1,
+    fontSize: 10,
     fontWeight: typography.weight.bold,
-    letterSpacing: 0.2,
   },
   timeTabs: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.sm,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
     padding: 2,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
@@ -475,63 +493,59 @@ const styles = StyleSheet.create({
   timeTab: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: borderRadius.sm - 2,
+    borderRadius: borderRadius.sm,
   },
   timeTabActive: {
-    backgroundColor: colors.surface,
-    ...shadows.sm,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   timeTabText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: typography.weight.medium,
     color: colors.textSecondary,
   },
   timeTabTextActive: {
-    color: colors.textPrimary,
     fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
   metricStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
-    marginBottom: spacing.sm,
+    paddingVertical: 4,
+    marginBottom: spacing.xs,
     gap: 6,
   },
   stripText: {
-    fontSize: 11,
-    color: colors.textMuted,
+    fontSize: 10,
+    color: colors.textSecondary,
   },
   stripValue: {
     fontWeight: typography.weight.semibold,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   stripDivider: {
     fontSize: 10,
-    color: colors.textMuted,
+    color: colors.surfaceBorder,
   },
   chartBox: {
+    width: '100%',
     alignItems: 'center',
-    marginTop: spacing.xs,
+    marginVertical: spacing.xs,
   },
   emptyCard: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderStyle: 'dashed',
-    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
   },
   emptyTitle: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.sm + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    marginTop: spacing.xs,
-    marginBottom: 4,
     textAlign: 'center',
+    marginTop: 4,
   },
   emptyDesc: {
     fontSize: typography.size.xs,
@@ -539,23 +553,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     maxWidth: 240,
-    marginBottom: spacing.sm,
   },
   emptyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.sm,
+    gap: 5,
+    backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderColor: colors.softAmber,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
   },
   emptyActionText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
+  },
+  actionRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceBorder,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
+  },
+  logReadingLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  logReadingText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
 });
 

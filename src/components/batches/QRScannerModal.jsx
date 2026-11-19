@@ -172,26 +172,25 @@ export function QRScannerModal({ visible, onClose, onScanSuccess }) {
                     barcodeTypes: ['qr'],
                   }}
                   onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-                >
-                  <View style={styles.overlay}>
-                    <View style={styles.unfocusedTop} />
-                    <View style={styles.centerRow}>
-                      <View style={styles.unfocusedSide} />
-                      <View style={styles.scanTarget}>
-                        <View style={[styles.corner, styles.cornerTL]} />
-                        <View style={[styles.corner, styles.cornerTR]} />
-                        <View style={[styles.corner, styles.cornerBL]} />
-                        <View style={[styles.corner, styles.cornerBR]} />
-                      </View>
-                      <View style={styles.unfocusedSide} />
+                />
+                <View style={styles.overlay}>
+                  <View style={styles.unfocusedTop} />
+                  <View style={styles.centerRow}>
+                    <View style={styles.unfocusedSide} />
+                    <View style={styles.scanTarget}>
+                      <View style={[styles.corner, styles.cornerTL]} />
+                      <View style={[styles.corner, styles.cornerTR]} />
+                      <View style={[styles.corner, styles.cornerBL]} />
+                      <View style={[styles.corner, styles.cornerBR]} />
                     </View>
-                    <View style={styles.unfocusedBottom}>
-                      <Text style={styles.scanInstruction}>
-                        Align jar label QR code inside the frame
-                      </Text>
-                    </View>
+                    <View style={styles.unfocusedSide} />
                   </View>
-                </CameraView>
+                  <View style={styles.unfocusedBottom}>
+                    <Text style={styles.scanInstruction}>
+                      Align jar label QR code inside the frame
+                    </Text>
+                  </View>
+                </View>
               </View>
             )}
           </View>
@@ -304,12 +303,13 @@ const styles = StyleSheet.create({
   },
   scannerWrapper: {
     flex: 1,
+    position: 'relative',
   },
   camera: {
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   unfocusedTop: {
     flex: 1,

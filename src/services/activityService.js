@@ -7,7 +7,7 @@ import {
   limit,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 
 /**
  * Activity Log Service
@@ -15,7 +15,7 @@ import { db } from './firebase';
  */
 
 export function logUserActivity(uid, activityData) {
-  if (!uid) return;
+  if (!uid || !auth.currentUser || auth.currentUser.uid !== uid) return;
 
   try {
     const activityRef = collection(db, 'users', uid, 'activity');
@@ -39,7 +39,7 @@ function withTimeout(promise, ms = 2000) {
 }
 
 export async function getUserActivities(uid, limitCount = 10) {
-  if (!uid) return [];
+  if (!uid || !auth.currentUser || auth.currentUser.uid !== uid) return [];
 
   try {
     const activityRef = collection(db, 'users', uid, 'activity');

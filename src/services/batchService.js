@@ -11,7 +11,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { getHiveById } from './hiveService';
 
 const BATCHES_STORAGE_KEY_PREFIX = '@honeychain_batches_';
@@ -62,6 +62,9 @@ export async function getUserBatches(uid) {
   if (!uid) return [];
 
   const localBatches = await getLocalBatches(uid);
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    return localBatches;
+  }
 
   try {
     const batchesRef = collection(db, 'batches');

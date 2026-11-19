@@ -9,11 +9,13 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.honeychain.app",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "HoneyChain needs microphone access to let you ask voice questions to the apiculture assistant."
       }
     },
     "android": {
+      "package": "com.honeychain.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -29,6 +31,7 @@
     },
     "plugins": [
       "expo-font",
+      "expo-notifications",
       [
         "expo-audio",
         {

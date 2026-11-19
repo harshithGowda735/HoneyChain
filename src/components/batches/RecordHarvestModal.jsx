@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
 import AppButton from '../common/AppButton';
 import { useLanguage } from '../../context/LanguageContext';
+import { HoneyJarIllustration } from '../illustrations/HoneyJarIllustration';
 
 const FLORAL_SUGGESTIONS = [
   'Multifloral',
@@ -88,50 +88,55 @@ export function RecordHarvestModal({
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
-
     if (selectedHiveIds.length === 0) {
       setFormError(t('selectAtLeastOneHive'));
       return;
     }
 
-    const qty = Number(quantity);
-    if (isNaN(qty) || qty <= 0) {
-      setFormError('Please enter a valid positive harvest quantity in kilograms.');
+    const qtyNum = parseFloat(quantity);
+    if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
+      setFormError('Please enter a valid harvest quantity in kg (e.g. 12.5).');
       return;
     }
 
     if (!honeyType.trim()) {
-      setFormError('Please enter the floral source or honey type.');
+      setFormError('Please specify the floral source or honey type.');
       return;
     }
 
-    setIsSubmitting(true);
     setFormError('');
+    setIsSubmitting(true);
 
     try {
-      // Gather source hive names for traceability record
       const selectedHivesList = hives.filter((h) => selectedHiveIds.includes(h.id));
-      const sourceHiveNames = selectedHivesList.map((h) => h.name || h.id);
-      const primaryHive = selectedHivesList[0];
+      const sourceHives = selectedHivesList.map((h) => ({
+        id: h.id,
+        name: h.name,
+        location: h.location || h.yard || 'Apiary',
+      }));
 
-      const harvestPayload = {
-        hiveId: primaryHive.id, // Primary source hive for backwards compatibility & rules
+      const primaryHive = selectedHivesList[0] || {};
+      const payload = {
+        hiveId: primaryHive.id || null,
+        hiveName: primaryHive.name || 'Apiary',
         sourceHiveIds: selectedHiveIds,
-        sourceHiveNames,
-        quantity: qty,
-        unit: 'kg',
+        sourceHives,
+        harvestDate: harvestDate || new Date().toISOString(),
+        quantity: qtyNum,
         honeyType: honeyType.trim(),
-        harvestDate: harvestDate || new Date().toISOString().split('T')[0],
-        moisture: moisture.trim(),
+        moistureContent: moisture ? parseFloat(moisture) : null,
         notes: notes.trim(),
-        status: 'Harvested',
+        stage: 'Extraction',
       };
 
-      const result = await onSubmitHarvest(harvestPayload);
-      setCreatedBatch(result);
+      if (onSubmitHarvest) {
+        const resultBatch = await onSubmitHarvest(payload);
+        setCreatedBatch(resultBatch || payload);
+      } else {
+        onClose();
+      }
     } catch (err) {
-      setFormError(err?.message || 'Failed to save harvest record. Please try again.');
+      setFormError(err?.message || 'Failed to record harvest.');
     } finally {
       setIsSubmitting(false);
     }
@@ -148,35 +153,39 @@ export function RecordHarvestModal({
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{t('recordHarvestTitle')}</Text>
-              <Text style={styles.subtitle}>{t('recordHarvestSub')}</Text>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <HoneyJarIllustration size={36} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{t('recordHarvestTitle')}</Text>
+                <Text style={styles.subtitle}>{t('recordHarvestSub')}</Text>
+              </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
-          {/* Success Screen */}
           {createdBatch ? (
+            /* Success & QR View Screen */
             <View style={styles.successBox}>
-              <View style={styles.successIconCircle}>
-                <Ionicons name="checkmark-circle" size={54} color={colors.status.healthy.indicator} />
-              </View>
+              <HoneyJarIllustration size={72} />
               <Text style={styles.successTitle}>{t('harvestSuccessTitle')}</Text>
               <Text style={styles.successSub}>{t('harvestSuccessSub')}</Text>
 
               <View style={styles.batchInfoPill}>
-                <Text style={styles.batchInfoLabel}>{t('batchCodeLabel')}:</Text>
-                <Text style={styles.batchInfoValue}>{createdBatch.batchCode}</Text>
+                <Ionicons name="shield-checkmark" size={16} color={colors.primaryDark} />
+                <Text style={styles.batchInfoLabel}>BATCH CODE:</Text>
+                <Text style={styles.batchInfoValue}>
+                  {createdBatch.batchCode || createdBatch.id || 'HC-2026-PENDING'}
+                </Text>
               </View>
 
               <View style={styles.successSummaryCard}>
                 <Text style={styles.summaryRow}>
-                  🍯 {createdBatch.honeyType} • {createdBatch.quantity} kg
+                  {createdBatch.quantity || quantity} kg • {createdBatch.honeyType || honeyType}
                 </Text>
                 <Text style={styles.summaryRowSub}>
-                  {t('sourceHivesLabel')}: {createdBatch.sourceHiveNames?.join(', ') || createdBatch.hiveName}
+                  Linked to {selectedHiveIds.length} source colony(ies)
                 </Text>
               </View>
 
@@ -191,36 +200,36 @@ export function RecordHarvestModal({
                       onClose();
                       onViewQrForBatch(createdBatch);
                     }}
-                    style={{ width: '100%', marginBottom: spacing.sm }}
+                    style={{ marginBottom: spacing.sm }}
                   />
                 )}
+
                 <AppButton
                   title={t('doneBtn')}
                   variant="outline"
                   size="md"
                   onPress={onClose}
-                  style={{ width: '100%' }}
                 />
               </View>
             </View>
           ) : (
+            /* Form Body */
             <ScrollView
-              showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollBody}
+              showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Form Error Banner */}
               {formError ? (
                 <View style={styles.errorBanner}>
-                  <Ionicons name="alert-circle" size={18} color={colors.status.critical.text} />
+                  <Ionicons name="alert-circle" size={16} color={colors.error} />
                   <Text style={styles.errorText}>{formError}</Text>
                 </View>
               ) : null}
 
-              {/* Step 1: Select Source Hives */}
+              {/* 1. Source Colonies Selection */}
               <View style={styles.formSection}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>1. {t('selectSourceHives')} *</Text>
+                  <Text style={styles.sectionTitle}>{t('selectSourceHives')}</Text>
                   {hives.length > 1 && (
                     <TouchableOpacity onPress={handleSelectAllHives}>
                       <Text style={styles.selectAllText}>
@@ -232,21 +241,18 @@ export function RecordHarvestModal({
 
                 {hives.length === 0 ? (
                   <View style={styles.noHivesWarning}>
-                    <Ionicons name="warning-outline" size={24} color={colors.accentDeep} />
+                    <Ionicons name="warning-outline" size={24} color={colors.warning} />
                     <Text style={styles.noHivesText}>
-                      No colonies registered yet. You must register at least one hive before recording a harvest.
+                      No colonies registered yet. Register at least one hive to record a harvest.
                     </Text>
-                    <AppButton
-                      title={t('addHive')}
-                      iconName="add-circle-outline"
-                      variant="primary"
-                      size="sm"
-                      onPress={() => {
-                        onClose();
-                        onOpenAddHive && onOpenAddHive();
-                      }}
-                      style={{ marginTop: spacing.sm }}
-                    />
+                    {onOpenAddHive && (
+                      <AppButton
+                        title="Add First Colony"
+                        variant="primary"
+                        size="sm"
+                        onPress={onOpenAddHive}
+                      />
+                    )}
                   </View>
                 ) : (
                   <View style={styles.hivesGrid}>
@@ -255,21 +261,24 @@ export function RecordHarvestModal({
                       return (
                         <TouchableOpacity
                           key={hive.id}
-                          style={[styles.hiveChip, isSelected && styles.hiveChipSelected]}
+                          activeOpacity={0.75}
                           onPress={() => toggleHiveSelection(hive.id)}
-                          activeOpacity={0.7}
+                          style={[styles.hiveChip, isSelected && styles.hiveChipSelected]}
                         >
                           <Ionicons
                             name={isSelected ? 'checkbox' : 'square-outline'}
                             size={18}
-                            color={isSelected ? colors.primary : colors.textMuted}
+                            color={isSelected ? colors.primaryDark : colors.textMuted}
                           />
                           <View style={{ flex: 1 }}>
-                            <Text style={[styles.hiveChipName, isSelected && styles.hiveChipNameSelected]}>
-                              {hive.name || `Hive ${hive.id.slice(0, 5)}`}
+                            <Text
+                              style={[styles.hiveChipName, isSelected && styles.hiveChipNameSelected]}
+                              numberOfLines={1}
+                            >
+                              {hive.name}
                             </Text>
                             <Text style={styles.hiveChipLoc} numberOfLines={1}>
-                              {hive.location || 'Apiary yard'}
+                              {hive.location || 'Apiary'} • {hive.honeySuperCount || 1} Supers
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -280,20 +289,20 @@ export function RecordHarvestModal({
 
                 {selectedHiveIds.length > 0 && (
                   <Text style={styles.selectedCountNote}>
-                    ✓ {t('selectedHivesCount').replace('{count}', String(selectedHiveIds.length))}
+                    ✓ {t('selectedHivesCount', { count: selectedHiveIds.length })}
                   </Text>
                 )}
               </View>
 
-              {/* Step 2: Harvest Details */}
+              {/* 2. Extraction & Quantity Details */}
               <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>2. Harvest Metrics</Text>
+                <Text style={styles.sectionTitle}>Extraction Details</Text>
 
                 {/* Net Quantity (kg) */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>{t('harvestQuantityLabel')} *</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="scale-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                    <Ionicons name="scale-outline" size={18} color={colors.primaryDark} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder={t('harvestQuantityPlaceholder')}
@@ -311,7 +320,7 @@ export function RecordHarvestModal({
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>{t('floralSourceLabel')} *</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="flower-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                    <Ionicons name="leaf-outline" size={18} color={colors.sage} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder={t('floralSourcePlaceholder')}
@@ -321,41 +330,40 @@ export function RecordHarvestModal({
                       editable={!isSubmitting}
                     />
                   </View>
-                  {/* Quick suggestion chips */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestionsScroll}>
-                    {FLORAL_SUGGESTIONS.map((sug) => (
+
+                  {/* Floral suggestion chips */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.suggestionsScroll}
+                  >
+                    {FLORAL_SUGGESTIONS.map((sugg) => (
                       <TouchableOpacity
-                        key={sug}
-                        style={[styles.suggestionChip, honeyType === sug && styles.suggestionChipActive]}
-                        onPress={() => setHoneyType(sug)}
+                        key={sugg}
+                        onPress={() => setHoneyType(sugg)}
+                        style={[
+                          styles.suggestionChip,
+                          honeyType === sugg && styles.suggestionChipActive,
+                        ]}
                       >
-                        <Text style={[styles.suggestionText, honeyType === sug && styles.suggestionTextActive]}>
-                          {sug}
+                        <Text
+                          style={[
+                            styles.suggestionText,
+                            honeyType === sugg && styles.suggestionTextActive,
+                          ]}
+                        >
+                          {sugg}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 </View>
 
-                {/* Harvest Date */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>{t('harvestDateLabel')} (YYYY-MM-DD)</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="calendar-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={harvestDate}
-                      onChangeText={setHarvestDate}
-                      editable={!isSubmitting}
-                    />
-                  </View>
-                </View>
-
                 {/* Moisture Content (%) */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>{t('moistureLabel')}</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="water-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                    <Ionicons name="water-outline" size={18} color={colors.sensor.humidity} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder={t('moisturePlaceholder')}
@@ -408,15 +416,17 @@ export function RecordHarvestModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(73, 61, 50, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
     maxHeight: '92%',
     minHeight: '60%',
+    borderTopWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   header: {
     flexDirection: 'row',
@@ -426,8 +436,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
     backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
   },
   title: {
     fontSize: typography.size.md + 1,
@@ -441,6 +451,10 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   scrollBody: {
     padding: spacing.lg,
@@ -453,6 +467,7 @@ const styles = StyleSheet.create({
     borderColor: colors.surfaceBorder,
     padding: spacing.md,
     marginBottom: spacing.md,
+    ...shadows.sm,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -467,15 +482,15 @@ const styles = StyleSheet.create({
   },
   selectAllText: {
     fontSize: typography.size.xs,
-    fontWeight: typography.weight.semibold,
-    color: colors.primary,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
   noHivesWarning: {
     backgroundColor: colors.accentSoft,
     padding: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.accentLight,
+    borderColor: colors.softAmber,
     alignItems: 'center',
     gap: spacing.xs,
   },
@@ -491,7 +506,7 @@ const styles = StyleSheet.create({
   hiveChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
@@ -499,8 +514,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   hiveChipSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    backgroundColor: colors.backgroundSecondary,
+    borderColor: colors.softAmber,
   },
   hiveChipName: {
     fontSize: typography.size.sm,
@@ -508,17 +523,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   hiveChipNameSelected: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: typography.weight.bold,
   },
   hiveChipLoc: {
     fontSize: typography.size.xs - 1,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   selectedCountNote: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
     marginTop: spacing.sm,
   },
   inputGroup: {
@@ -533,7 +548,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
@@ -544,8 +559,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 46,
-    fontSize: typography.size.sm + 1,
+    height: 44,
+    fontSize: typography.size.sm,
     color: colors.textPrimary,
   },
   unitSuffix: {
@@ -560,20 +575,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   textArea: {
-    height: 72,
+    height: 70,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     textAlignVertical: 'top',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   suggestionsScroll: {
-    marginTop: spacing.xs,
+    marginTop: spacing.xs + 2,
   },
   suggestionChip: {
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 5,
     borderRadius: borderRadius.full,
@@ -582,8 +597,8 @@ const styles = StyleSheet.create({
     borderColor: colors.surfaceBorder,
   },
   suggestionChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   suggestionText: {
     fontSize: typography.size.xs - 1,
@@ -591,7 +606,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.medium,
   },
   suggestionTextActive: {
-    color: colors.textInverse,
+    color: '#FFFFFF',
     fontWeight: typography.weight.bold,
   },
   errorBanner: {
@@ -619,20 +634,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  successIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.status.healthy.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
   successTitle: {
     fontSize: typography.size.lg,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
     textAlign: 'center',
+    marginTop: spacing.sm,
   },
   successSub: {
     fontSize: typography.size.xs + 1,
@@ -644,35 +651,36 @@ const styles = StyleSheet.create({
   batchInfoPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.backgroundSecondary,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.softAmber,
     gap: spacing.xs,
     marginBottom: spacing.md,
   },
   batchInfoLabel: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
   batchInfoValue: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.primaryDark,
     letterSpacing: 1,
   },
   successSummaryCard: {
     width: '100%',
     backgroundColor: colors.surface,
     padding: spacing.md,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     marginBottom: spacing.xl,
     alignItems: 'center',
+    ...shadows.sm,
   },
   summaryRow: {
     fontSize: typography.size.sm + 1,

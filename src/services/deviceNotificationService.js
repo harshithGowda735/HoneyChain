@@ -9,15 +9,21 @@ import * as Notifications from 'expo-notifications';
  */
 
 let isConfigured = false;
+let channelsAvailable = false;
 
 // Configure how notifications are displayed when the app is foregrounded
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+try {
+  if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  }
+} catch (_) {}
 
 /**
  * Initializes notification permissions and Android channels.
@@ -35,29 +41,35 @@ export async function initDeviceNotifications() {
     }
 
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('colony_alerts', {
-        name: 'HoneyChain Colony Alerts',
-        description: 'Critical temperature warnings, recovery updates, and hive maintenance alerts',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 300, 200, 300],
-        lightColor: '#E87522',
-        sound: 'default',
-      });
+      // Notification channels work in development/production builds, but throw NPE in Expo Go SDK 57+
+      try {
+        await Notifications.setNotificationChannelAsync('colony_alerts', {
+          name: 'HoneyChain Colony Alerts',
+          description: 'Critical temperature warnings, recovery updates, and hive maintenance alerts',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 300, 200, 300],
+          lightColor: '#E87522',
+          sound: 'default',
+        });
 
-      await Notifications.setNotificationChannelAsync('harvest_suggestions', {
-        name: 'HoneyChain Harvest Advisories',
-        description: 'Honey storage gain and comb inspection advisories',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 200, 150, 200],
-        lightColor: '#10B981',
-        sound: 'default',
-      });
+        await Notifications.setNotificationChannelAsync('harvest_suggestions', {
+          name: 'HoneyChain Harvest Advisories',
+          description: 'Honey storage gain and comb inspection advisories',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 200, 150, 200],
+          lightColor: '#10B981',
+          sound: 'default',
+        });
+        channelsAvailable = true;
+      } catch (_) {
+        channelsAvailable = false;
+      }
     }
 
     isConfigured = finalStatus === 'granted';
     return isConfigured;
   } catch (err) {
-    console.log('[DeviceNotification] Init notification channel notice:', err?.message);
+    console.log('[DeviceNotification] Init permission notice:', err?.message);
     return false;
   }
 }
@@ -82,7 +94,7 @@ export async function sendPhoneNotification({ title, body, channelId = 'colony_a
         data,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
-        ...(Platform.OS === 'android' ? { channelId } : {}),
+        ...(Platform.OS === 'android' && channelsAvailable ? { channelId } : {}),
       },
       trigger: null, // null trigger schedules immediately!
     });

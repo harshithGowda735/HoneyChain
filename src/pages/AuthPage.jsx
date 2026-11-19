@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
@@ -17,6 +16,8 @@ import AppButton from '../components/common/AppButton';
 import FirebaseRecaptchaModal from '../components/auth/FirebaseRecaptchaModal';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage, LANGUAGES } from '../context/LanguageContext';
+import { FriendlyBee } from '../components/illustrations/FriendlyBee';
+import { HoneycombPattern } from '../components/illustrations/HoneycombPattern';
 
 export function AuthPage({ onOpenPublicScanner }) {
   const { sendOtp, verifyOtp } = useAuth();
@@ -98,45 +99,31 @@ export function AuthPage({ onOpenPublicScanner }) {
         setRecaptchaVisible(true);
       } else if (code.includes('invalid-phone') || code.includes('INVALID_PHONE_NUMBER')) {
         setErrorMessage(t('invalidPhone', 'Please enter a valid 10-digit mobile number.'));
-      } else if (code.includes('quota') || code.includes('QUOTA_EXCEEDED')) {
-        setErrorMessage('SMS limit reached. Please try test numbers (+91 9876543210 / 123456).');
       } else {
-        setErrorMessage(err?.message || 'Failed to send OTP. Check network and phone number.');
+        setErrorMessage(err?.message || 'Failed to send OTP. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleRecaptchaSuccess = async (token) => {
-    setRecaptchaVisible(false);
-    await handleSendOtp(token);
-  };
-
   const handleVerifyOtp = async () => {
-    if (!otpCode || otpCode.trim().length !== 6) {
-      setErrorMessage(t('invalidOtp', 'Please enter the complete 6-digit OTP code.'));
+    const rawOtp = otpCode.trim();
+    if (rawOtp.length !== 6) {
+      setErrorMessage(t('invalidOtp', 'Please enter a 6-digit OTP code.'));
       return;
     }
 
-    if (!sessionInfo) {
-      setErrorMessage('Verification session expired. Please request a new OTP.');
-      setStep('phone');
-      return;
-    }
-
-    setIsSubmitting(true);
     setErrorMessage('');
+    setIsSubmitting(true);
 
     try {
-      await verifyOtp(sessionInfo, otpCode.trim(), {
-        phoneNumber: pendingPhone,
-        preferredLanguage: language,
-      });
+      await verifyOtp(rawOtp, sessionInfo);
+      // Navigation handles routing automatically on user state change
     } catch (err) {
       const code = err?.code || '';
-      if (code.includes('invalid') || code.includes('INVALID_CODE')) {
-        setErrorMessage(t('invalidOtp', 'Please enter the complete 6-digit OTP code.'));
+      if (code.includes('invalid-verification-code') || code.includes('INVALID_CODE')) {
+        setErrorMessage(t('invalidOtp', 'Invalid OTP code. Please enter the correct code.'));
       } else if (code.includes('expired') || code.includes('SESSION_EXPIRED')) {
         setErrorMessage('OTP expired. Please request a new code.');
       } else {
@@ -157,20 +144,23 @@ export function AuthPage({ onOpenPublicScanner }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Subtle decorative honeycomb header backdrop */}
+        <View style={styles.topPatternWrapper} pointerEvents="none">
+          <HoneycombPattern width={220} height={120} opacity={0.35} />
+        </View>
+
         {/* 1. First-Time Pre-Auth Language Selection Screen */}
         {step === 'language' ? (
           <View style={styles.languageWrapper}>
-            <View style={styles.brandHeader}>
-              <View style={styles.logoBadge}>
-                <Ionicons name="nutrition-outline" size={32} color={colors.primary} />
-              </View>
+            <View style={styles.brandHero}>
+              <FriendlyBee size={64} showFlightPath={true} />
               <Text style={styles.appName}>HoneyChain</Text>
-              <Text style={styles.tagline}>Smart Beekeeping. Trusted Honey.</Text>
+              <Text style={styles.tagline}>Smart Beekeeping • Trusted Honey</Text>
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardHeading}>Select Language</Text>
-              <Text style={styles.cardSub}>Choose your preferred language for the app.</Text>
+              <Text style={styles.cardHeading}>Select Language / ಭಾಷೆ / भाषा</Text>
+              <Text style={styles.cardSub}>Choose your preferred language for the application.</Text>
 
               <View style={styles.langList}>
                 {LANGUAGES.map((langItem) => {
@@ -178,7 +168,7 @@ export function AuthPage({ onOpenPublicScanner }) {
                   return (
                     <TouchableOpacity
                       key={langItem.code}
-                      activeOpacity={0.7}
+                      activeOpacity={0.75}
                       onPress={() => setSelectedLang(langItem.code)}
                       style={[
                         styles.langCard,
@@ -189,7 +179,7 @@ export function AuthPage({ onOpenPublicScanner }) {
                         <Ionicons
                           name={isSelected ? 'radio-button-on' : 'radio-button-off'}
                           size={20}
-                          color={isSelected ? colors.primary : colors.textMuted}
+                          color={isSelected ? colors.primaryDark : colors.textMuted}
                         />
                         <View style={{ marginLeft: spacing.sm }}>
                           <Text style={[styles.langNativeName, isSelected && styles.langTextSelected]}>
@@ -199,7 +189,9 @@ export function AuthPage({ onOpenPublicScanner }) {
                         </View>
                       </View>
                       {isSelected ? (
-                        <Ionicons name="checkmark" size={18} color={colors.primary} />
+                        <View style={styles.checkCircle}>
+                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                        </View>
                       ) : null}
                     </TouchableOpacity>
                   );
@@ -218,24 +210,22 @@ export function AuthPage({ onOpenPublicScanner }) {
         ) : (
           /* 2. Phone Login & OTP Screens */
           <View style={styles.authWrapper}>
-            {/* Minimal Brand Header */}
-            <View style={styles.brandHeader}>
-              <View style={styles.logoBadge}>
-                <Ionicons name="nutrition-outline" size={30} color={colors.primary} />
-              </View>
+            {/* Friendly Bee Brand Hero */}
+            <View style={styles.brandHero}>
+              <FriendlyBee size={68} showFlightPath={true} />
               <Text style={styles.appName}>HoneyChain</Text>
-              <Text style={styles.tagline}>Smart Beekeeping. Trusted Honey.</Text>
+              <Text style={styles.tagline}>Smart Beekeeping • Trusted Honey</Text>
             </View>
 
             {/* Auth Card */}
             <View style={styles.card}>
               <Text style={styles.cardHeading}>
-                {step === 'phone' ? 'Welcome' : 'Enter OTP'}
+                {step === 'phone' ? 'Beekeeper Login' : 'Enter OTP Verification'}
               </Text>
               <Text style={styles.cardSub}>
                 {step === 'phone'
-                  ? 'Sign in to your apiary.'
-                  : `OTP sent to ${pendingPhone || `+91 ${phoneNumber}`}`}
+                  ? 'Sign in to access your apiary colonies and harvest records.'
+                  : `OTP code sent via SMS to ${pendingPhone || `+91 ${phoneNumber}`}`}
               </Text>
 
               {/* Error Alert */}
@@ -278,22 +268,30 @@ export function AuthPage({ onOpenPublicScanner }) {
                     style={styles.continueBtn}
                   />
 
-                  {/* Public Consumer QR Verification Shortcut */}
+                  {/* Public Honey Verification (Clear, Professional Label) */}
                   <View style={styles.consumerDivider}>
                     <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>CONSUMER ACCESS</Text>
+                    <Text style={styles.dividerText}>{t('publicVerificationTitle', 'PUBLIC HONEY VERIFICATION')}</Text>
                     <View style={styles.dividerLine} />
                   </View>
 
                   <TouchableOpacity
                     style={styles.consumerScanBtn}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                     onPress={onOpenPublicScanner}
                   >
-                    <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
-                    <Text style={styles.consumerScanText}>
-                      Verify Honey Jar (No Login Required)
-                    </Text>
+                    <View style={styles.scanIconWrap}>
+                      <Ionicons name="qr-code-outline" size={22} color={colors.primaryDark} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.consumerScanTitle}>
+                        Scan Honey Jar QR
+                      </Text>
+                      <Text style={styles.consumerScanSub}>
+                        Verify authentic purity & origin without signing in
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </>
               ) : (
@@ -302,19 +300,19 @@ export function AuthPage({ onOpenPublicScanner }) {
                   {/* Demo OTP Box */}
                   <TouchableOpacity
                     style={styles.demoOtpCard}
-                    activeOpacity={0.8}
+                    activeOpacity={0.85}
                     onPress={() => setOtpCode(demoOtpCode)}
                   >
                     <View style={styles.demoOtpContent}>
                       <View style={styles.demoOtpBadge}>
-                        <Ionicons name="key" size={13} color={colors.accentDeep} />
+                        <Ionicons name="key" size={13} color={colors.primaryDark} />
                         <Text style={styles.demoOtpBadgeText}>DEMO OTP</Text>
                       </View>
                       <Text style={styles.demoOtpCodeText}>{demoOtpCode}</Text>
                     </View>
                     <View style={styles.demoOtpFillPill}>
                       <Text style={styles.demoOtpFillText}>Tap to fill</Text>
-                      <Ionicons name="arrow-down" size={12} color={colors.primary} />
+                      <Ionicons name="arrow-down" size={12} color={colors.primaryDark} />
                     </View>
                   </TouchableOpacity>
 
@@ -355,7 +353,7 @@ export function AuthPage({ onOpenPublicScanner }) {
                         setErrorMessage('');
                       }}
                     >
-                      <Text style={styles.changePhoneLink}>{t('changeNumber')}</Text>
+                      <Text style={styles.changePhoneLink}>{t('changePhone', 'Change Number')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -378,10 +376,9 @@ export function AuthPage({ onOpenPublicScanner }) {
         <FirebaseRecaptchaModal
           visible={recaptchaVisible}
           onClose={() => setRecaptchaVisible(false)}
-          onSuccess={handleRecaptchaSuccess}
-          onError={(err) => {
+          onSuccess={(token) => {
             setRecaptchaVisible(false);
-            setErrorMessage(err || 'Verification failed. Please retry.');
+            handleSendOtp(token);
           }}
         />
       </ScrollView>
@@ -396,47 +393,40 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xxl,
+    paddingVertical: spacing.xl,
+    justifyContent: 'center',
+    position: 'relative',
   },
-  languageWrapper: {
-    width: '100%',
+  topPatternWrapper: {
+    position: 'absolute',
+    top: 10,
+    right: 0,
+    opacity: 0.5,
   },
-  authWrapper: {
-    width: '100%',
-  },
-  brandHeader: {
+  brandHero: {
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
   appName: {
-    fontSize: typography.size.xxl,
+    fontSize: typography.size.xxxl,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textPrimary,
+    marginTop: spacing.xs,
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.xs + 1,
     color: colors.textSecondary,
     marginTop: 2,
     fontWeight: typography.weight.medium,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    padding: spacing.xl,
     ...shadows.card,
   },
   cardHeading: {
@@ -452,23 +442,22 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   langList: {
+    marginBottom: spacing.lg,
     gap: spacing.sm,
-    marginBottom: spacing.xl,
   },
   langCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.surface,
   },
   langCardSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
+    backgroundColor: colors.backgroundSecondary,
   },
   langCardLeft: {
     flexDirection: 'row',
@@ -476,60 +465,49 @@ const styles = StyleSheet.create({
   },
   langNativeName: {
     fontSize: typography.size.md,
-    fontWeight: typography.weight.semibold,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-  },
-  langTextSelected: {
-    color: colors.primary,
   },
   langLabel: {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
+    marginTop: 1,
   },
-  continueBtn: {
-    marginTop: spacing.xs,
+  langTextSelected: {
+    color: colors.primaryDark,
   },
-  errorAlert: {
-    flexDirection: 'row',
+  checkCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primaryDark,
     alignItems: 'center',
-    backgroundColor: colors.status.critical.bg,
-    borderWidth: 1,
-    borderColor: colors.status.critical.border,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: typography.size.sm,
-    color: colors.error,
+    justifyContent: 'center',
   },
   inputGroup: {
     marginBottom: spacing.lg,
   },
   inputLabel: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.xs + 1,
     fontWeight: typography.weight.semibold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs + 2,
+    marginBottom: spacing.xs,
   },
   phoneInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 48,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.background,
     overflow: 'hidden',
   },
   countryCodeBadge: {
     paddingHorizontal: spacing.md,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceBorder,
+    paddingVertical: spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: colors.surfaceBorder,
+    backgroundColor: colors.backgroundSecondary,
   },
   countryCodeText: {
     fontSize: typography.size.md,
@@ -538,16 +516,19 @@ const styles = StyleSheet.create({
   },
   phoneInput: {
     flex: 1,
-    height: '100%',
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     fontSize: typography.size.md,
     color: colors.textPrimary,
-    letterSpacing: 1,
+  },
+  continueBtn: {
+    width: '100%',
+    marginBottom: spacing.md,
   },
   consumerDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: spacing.xl,
+    marginVertical: spacing.lg,
     gap: spacing.sm,
   },
   dividerLine: {
@@ -556,69 +537,50 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceBorder,
   },
   dividerText: {
-    fontSize: typography.size.xs - 1,
-    fontWeight: typography.weight.semibold,
-    color: colors.textMuted,
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+    letterSpacing: 0.8,
   },
   consumerScanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+    backgroundColor: colors.accentSoft,
+    gap: spacing.md,
+  },
+  scanIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
     justifyContent: 'center',
-    height: 46,
-    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.primary,
-    gap: spacing.sm,
+    borderColor: colors.softAmber,
   },
-  consumerScanText: {
+  consumerScanTitle: {
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.semibold,
-    color: colors.primary,
-  },
-  otpInput: {
-    height: 52,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceSubtle,
-    textAlign: 'center',
-    fontSize: typography.size.xxl,
-    letterSpacing: 8,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
-  otpActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  cooldownText: {
-    fontSize: typography.size.xs + 1,
-    color: colors.textMuted,
-  },
-  resendLink: {
-    fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.semibold,
-    color: colors.primary,
-  },
-  changePhoneLink: {
-    fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.medium,
+  consumerScanSub: {
+    fontSize: typography.size.xs - 1,
     color: colors.textSecondary,
-    textDecorationLine: 'underline',
+    marginTop: 1,
   },
   demoOtpCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: colors.accent,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    padding: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
     marginBottom: spacing.md,
   },
   demoOtpContent: {
@@ -629,39 +591,83 @@ const styles = StyleSheet.create({
   demoOtpBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    gap: 3,
+    gap: 4,
   },
   demoOtpBadgeText: {
-    fontSize: typography.size.xs - 2,
+    fontSize: 10,
     fontWeight: typography.weight.bold,
-    color: colors.accentDeep,
-    letterSpacing: 0.5,
+    color: colors.primaryDark,
   },
   demoOtpCodeText: {
-    fontSize: typography.size.md + 1,
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
-    color: colors.accentDeep,
+    color: colors.textPrimary,
     letterSpacing: 2,
   },
   demoOtpFillPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
     gap: 3,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   demoOtpFillText: {
-    fontSize: typography.size.xs,
+    fontSize: 10,
     fontWeight: typography.weight.semibold,
-    color: colors.primary,
+    color: colors.primaryDark,
+  },
+  otpInput: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: typography.size.xl,
+    textAlign: 'center',
+    letterSpacing: 8,
+    color: colors.textPrimary,
+    fontWeight: typography.weight.bold,
+  },
+  otpActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  cooldownText: {
+    fontSize: typography.size.xs,
+    color: colors.textMuted,
+  },
+  resendLink: {
+    fontSize: typography.size.xs + 1,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+  },
+  changePhoneLink: {
+    fontSize: typography.size.xs + 1,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
+  },
+  errorAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.status.critical.bg,
+    borderColor: colors.status.critical.border,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  errorText: {
+    fontSize: typography.size.xs,
+    color: colors.status.critical.text,
+    flex: 1,
   },
 });
 

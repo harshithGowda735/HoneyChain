@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { spacing, typography, shadows } from '../../constants/layout';
+import { spacing, typography, borderRadius, shadows } from '../../constants/layout';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const TABS = [
@@ -43,28 +43,29 @@ export function BottomTabBar({ activeTab = 'home', onTabPress, bottomInset = 0 }
           return (
             <TouchableOpacity
               key={tab.key}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
               onPress={() => onTabPress && onTabPress(tab.key)}
               style={styles.tabButton}
             >
               <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
                 <Ionicons
                   name={isActive ? tab.iconActive : tab.iconInactive}
-                  size={22}
-                  color={isActive ? colors.primary : colors.tabBar.inactiveTint}
+                  size={21}
+                  color={isActive ? colors.primaryDark : colors.textSecondary}
                 />
               </View>
               <Text
                 style={[
                   styles.tabLabel,
                   {
-                    color: isActive ? colors.primary : colors.tabBar.inactiveTint,
-                    fontWeight: isActive ? typography.weight.bold : typography.weight.regular,
+                    color: isActive ? colors.primaryDark : colors.textSecondary,
+                    fontWeight: isActive ? typography.weight.bold : typography.weight.medium,
                   },
                 ]}
               >
                 {t(tab.labelKey)}
               </Text>
+              {isActive && <View style={styles.activeDot} />}
             </TouchableOpacity>
           );
         })}
@@ -77,8 +78,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.tabBar.border,
-    paddingTop: spacing.xs + 2,
+    borderTopColor: colors.surfaceBorder,
+    paddingTop: spacing.xs + 3,
     ...shadows.tabBar,
   },
   tabBar: {
@@ -91,22 +92,29 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
   iconWrapper: {
-    width: 36,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 30,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
   iconWrapperActive: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.primaryDark,
+    marginTop: 2,
   },
   tabLabel: {
     fontSize: typography.size.xs - 1,
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 });
 

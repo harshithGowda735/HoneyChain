@@ -1,113 +1,120 @@
 /**
- * HoneyChain Color Palette
- * Government-Service Agricultural System Design:
- * - Clean white card surfaces & warm neutral backgrounds
- * - Deep Indian forest green primary action color
- * - Restrained national saffron/amber accents
- * - High accessible contrast for rural sunlight readability
- */
-
-/**
- * HoneyChain Color Palette
- * Professional Indian Government Field-Service Agricultural System Design:
- * - Primary forest green: #07583F
- * - Dark green: #06452F
- * - White: #FFFFFF
- * - Warm cream background: #F7F5ED
- * - Restrained saffron accent: #E87522
- * - Main text: #1E2924
- * - Secondary text: #66736B
- * - Borders: #E4E2D8
- * - Error: #B42318
- * - Success: #16804A
+ * HoneyChain Design System - Warm Ivory + Honey Gold Palette
+ *
+ * Final Design Tokens:
+ * - Primary background: #FFF8E7 (Warm Ivory)
+ * - Secondary background: #FFF1C5 (Soft Warm Sand / Honey tint)
+ * - Card background: #FFFEF8 (Warm parchment card surface)
+ * - Primary honey: #F5AC19 (Luminous Honey Gold)
+ * - Deep honey: #D98B0B (Rich Amber Honey Accent)
+ * - Soft amber: #F9D76A (Warm Pollen / Light Honey)
+ * - Honey glow / soft tint: #FFF5D9
+ * - Sage accent: #879779 (Natural Botanical Sage)
+ * - Sage light: #EAF0E6
+ * - Primary text: #493D32 (Warm Soil / Deep Charcoal Brown)
+ * - Secondary text: #817565 (Warm Muted Clay)
+ * - Text muted: #A89D8F
+ * - Border: #EFE3C9 (Soft Honeycomb Border)
+ * - Border light: #F6EDE0
  */
 
 export const colors = {
-  // Brand & Action Colors
-  primary: '#07583F',        // Primary forest green
-  darkGreen: '#06452F',      // Dark green
-  primaryLight: '#0E7051',   // Mid forest green
-  primarySoft: '#E6EFEA',    // Subtle forest green tint
-  primaryMuted: '#537C6E',   // Muted green
+  // Brand & Honey Accents
+  primary: '#F5AC19',          // Primary honey gold
+  primaryDark: '#D98B0B',      // Deep honey accent
+  accent: '#D98B0B',           // Deep amber honey
+  accentLight: '#F9D76A',      // Soft amber / pollen
+  accentSoft: '#FFF5D9',       // Gentle honey glow
+  accentGlow: '#FEF3D6',       // Warm radiant fill
+  deepHoney: '#D98B0B',        // Deep amber honey alias
+  softAmber: '#F9D76A',        // Soft amber alias
+  honeyGold: '#F5AC19',        // Honey gold alias
 
-  // Restrained National Saffron / Harvest Accents
-  accent: '#E87522',         // Restrained saffron accent
-  accentLight: '#F38E45',    // Warm saffron tint
-  accentSoft: '#FDF0E7',     // Gentle saffron background tint
-  accentDeep: '#C95F16',     // Deep saffron for text/borders
+  // Sage / Botanical Accents
+  sage: '#879779',             // Sage green
+  sageLight: '#EAF0E6',        // Soft sage background tint
+  sageDark: '#5E6E50',         // Deep sage for text/borders
 
   // Backgrounds & Surfaces
-  background: '#F7F5ED',     // Warm cream background
-  surface: '#FFFFFF',        // Pure white card & container surface
+  background: '#FFF8E7',       // Primary warm ivory background
+  backgroundSecondary: '#FFF1C5', // Secondary warm sand background
+  surfaceSecondary: '#FFF1C5', // Surface secondary warm sand alias
+  surface: '#FFFEF8',          // Warm card & container surface
+  cardSurface: '#FFFEF8',      // Card surface alias
+  cardBackground: '#FFFEF8',   // Card background alias
   surfaceElevated: '#FFFFFF',
-  surfaceSubtle: '#F0EDE3',   // Subtle neutral surface
-  surfaceBorder: '#E4E2D8',   // Clean government border / divider
+  surfaceSubtle: '#FFF5D9',    // Subtle honey surface
+  surfaceBorder: '#EFE3C9',    // Soft border divider
+  border: '#EFE3C9',
+  borderLight: '#F6EDE0',
 
   // Text Hierarchy
-  textPrimary: '#1E2924',    // Main text (high-contrast near-black slate)
-  textSecondary: '#66736B',  // Secondary text (neutral moss slate)
-  textMuted: '#8E9C94',      // Muted label & placeholder text
-  textInverse: '#FFFFFF',    // White text on dark buttons/headers
-  textAccent: '#C95F16',     // Saffron accent text
+  textPrimary: '#493D32',      // Main text: warm earth charcoal
+  textSecondary: '#817565',    // Secondary text: warm clay
+  textMuted: '#A89D8F',        // Muted label & placeholder text
+  textInverse: '#FFFFFF',      // White text on dark/gold buttons
+  textAccent: '#D98B0B',       // Deep honey accent text
+  textSage: '#5E6E50',         // Sage text
 
   // Status Indicators
-  error: '#B42318',          // Government error red
-  success: '#16804A',        // Government success green
-  warning: '#D97706',        // Amber warning
+  error: '#C53030',            // Accessible warm red
+  success: '#2E7D32',          // Natural leaf green
+  warning: '#D98B0B',          // Warm honey amber
 
   status: {
     healthy: {
-      text: '#16804A',
-      bg: '#EAF7EE',
-      border: '#B6E8C6',
-      indicator: '#16804A',
+      text: '#2E7D32',
+      bg: '#EBF5EC',
+      border: '#C8E6C9',
+      indicator: '#388E3C',
     },
     active: {
-      text: '#16804A',
-      bg: '#EAF7EE',
-      border: '#B6E8C6',
-      indicator: '#16804A',
+      text: '#2E7D32',
+      bg: '#EBF5EC',
+      border: '#C8E6C9',
+      indicator: '#388E3C',
     },
     attention: {
       text: '#B45309',
-      bg: '#FEF3C7',
-      border: '#FDE68A',
-      indicator: '#D97706',
+      bg: '#FEF5E7',
+      border: '#FDE3B7',
+      indicator: '#F5AC19',
     },
     warning: {
       text: '#B45309',
-      bg: '#FEF3C7',
-      border: '#FDE68A',
-      indicator: '#D97706',
+      bg: '#FEF5E7',
+      border: '#FDE3B7',
+      indicator: '#F5AC19',
     },
     critical: {
-      text: '#B42318',
-      bg: '#FDF0EE',
-      border: '#FECDCA',
-      indicator: '#B42318',
+      text: '#C53030',
+      bg: '#FDF2F2',
+      border: '#F8D2D2',
+      indicator: '#C53030',
     },
     neutral: {
-      text: '#66736B',
-      bg: '#F0EDE3',
-      border: '#E4E2D8',
-      indicator: '#8E9C94',
+      text: '#817565',
+      bg: '#F7EFE1',
+      border: '#EFE3C9',
+      indicator: '#A89D8F',
     },
   },
 
   // Sensor & Telemetry Tokens
   sensor: {
-    temp: '#E87522',         // Saffron-orange for hive temperature
-    humidity: '#0284C7',     // Water blue for humidity
-    weight: '#7C3AED',       // Clean purple for weight
-    battery: '#16804A',      // Green for battery
+    temp: '#D98B0B',           // Deep honey for temperature
+    humidity: '#4A90A4',       // Soft slate blue for humidity
+    weight: '#879779',         // Sage green for colony biomass weight
+    battery: '#388E3C',        // Leaf green for battery
   },
 
   // Bottom Navigation
   tabBar: {
-    background: '#FFFFFF',
-    border: '#E4E2D8',
-    activeTint: '#07583F',
-    inactiveTint: '#66736B',
+    background: '#FFFEF8',
+    border: '#EFE3C9',
+    activeTint: '#D98B0B',
+    inactiveTint: '#817565',
+    activeBg: '#FFF1C5',
   },
 };
 

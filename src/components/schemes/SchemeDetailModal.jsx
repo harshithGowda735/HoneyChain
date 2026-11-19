@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { spacing, borderRadius, typography } from '../../constants/layout';
+import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
 import AppButton from '../common/AppButton';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -80,7 +80,7 @@ export function SchemeDetailModal({
             </View>
 
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
+              <Ionicons name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -88,7 +88,7 @@ export function SchemeDetailModal({
             {/* Top Highlight Subsidy Card */}
             <View style={styles.highlightCard}>
               <View style={styles.highlightBadge}>
-                <Ionicons name="gift-outline" size={18} color={colors.primary} />
+                <Ionicons name="gift-outline" size={16} color={colors.primaryDark} />
                 <Text style={styles.highlightBadgeText}>{t('schemeWhatYouGet')}</Text>
               </View>
               <Text style={styles.highlightMainText}>{displayBenefit}</Text>
@@ -98,7 +98,7 @@ export function SchemeDetailModal({
             {/* Who Can Apply (Eligibility) */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <Ionicons name="people-outline" size={18} color={colors.primary} />
+                <Ionicons name="people-outline" size={17} color={colors.primaryDark} />
                 <Text style={styles.sectionTitle}>{t('schemeWhoCanApply')}</Text>
               </View>
               {scheme.eligibilityCriteria.map((item, idx) => (
@@ -112,12 +112,12 @@ export function SchemeDetailModal({
             {/* Required Documents Checklist */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                <Ionicons name="document-text-outline" size={17} color={colors.primaryDark} />
                 <Text style={styles.sectionTitle}>{t('schemeDocuments')}</Text>
               </View>
               {scheme.requiredDocuments.map((doc, idx) => (
                 <View key={idx} style={styles.bulletRow}>
-                  <Ionicons name="document-attach-outline" size={16} color={colors.accentDeep} style={styles.bulletIcon} />
+                  <Ionicons name="document-attach-outline" size={16} color={colors.sageDark} style={styles.bulletIcon} />
                   <Text style={styles.bulletText}>{doc}</Text>
                 </View>
               ))}
@@ -126,7 +126,7 @@ export function SchemeDetailModal({
             {/* How to Apply */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <Ionicons name="trail-sign-outline" size={18} color={colors.primary} />
+                <Ionicons name="trail-sign-outline" size={17} color={colors.primaryDark} />
                 <Text style={styles.sectionTitle}>{t('schemeHowToApply')}</Text>
               </View>
               {scheme.applicationProcess.map((step, idx) => (
@@ -156,27 +156,29 @@ export function SchemeDetailModal({
 
             {/* Farmer Safety Note */}
             <View style={styles.safetyBox}>
-              <Ionicons name="shield-checkmark" size={16} color={colors.status.attention.text} />
+              <Ionicons name="shield-checkmark" size={16} color={colors.primaryDark} />
               <Text style={styles.safetyText}>
                 {t('schemeSafetyNotice')}
               </Text>
             </View>
 
-            {/* Bottom Actions: Save / Close */}
-            <View style={styles.bottomRow}>
+            {/* Bottom Actions Row */}
+            <View style={styles.bottomActions}>
               <AppButton
                 title={isBookmarked ? t('removeSaved') : t('saveScheme')}
                 iconName={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                variant={isBookmarked ? 'outline' : 'secondary'}
+                variant={isBookmarked ? 'secondary' : 'outline'}
                 size="md"
                 onPress={() => onToggleBookmark && onToggleBookmark(scheme.id)}
                 style={{ flex: 1 }}
               />
+
               <AppButton
                 title={t('close')}
                 variant="ghost"
                 size="md"
                 onPress={onClose}
+                style={{ flex: 1 }}
               />
             </View>
           </ScrollView>
@@ -189,29 +191,33 @@ export function SchemeDetailModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(73, 61, 50, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
     maxHeight: '92%',
-    paddingBottom: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceBorder,
-    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
   },
   title: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.md + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    lineHeight: 24,
   },
   department: {
     fontSize: typography.size.xs,
@@ -220,133 +226,142 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   scrollBody: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xxxl,
   },
   highlightCard: {
-    backgroundColor: '#F0F9F4',
-    borderWidth: 1,
-    borderColor: '#C6E8D6',
-    borderRadius: borderRadius.lg,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.xl,
     padding: spacing.md,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+    ...shadows.card,
   },
   highlightBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     marginBottom: spacing.xs,
   },
   highlightBadgeText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
-    textTransform: 'uppercase',
+    color: colors.primaryDark,
+    letterSpacing: 0.5,
   },
   highlightMainText: {
     fontSize: typography.size.md + 1,
     fontWeight: typography.weight.bold,
-    color: colors.primary,
+    color: colors.textPrimary,
     lineHeight: 22,
     marginBottom: 4,
   },
   highlightSubText: {
     fontSize: typography.size.xs,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   sectionCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    ...shadows.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
     marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: typography.size.sm + 1,
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   bulletRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: spacing.xs + 2,
   },
   bulletIcon: {
-    marginRight: 8,
+    marginRight: spacing.xs + 2,
     marginTop: 2,
   },
   bulletText: {
+    flex: 1,
     fontSize: typography.size.xs + 1,
     color: colors.textPrimary,
-    flex: 1,
     lineHeight: 20,
   },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: spacing.sm,
-    gap: spacing.sm,
   },
   stepNumberBadge: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: spacing.sm,
+    marginTop: 1,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   stepNumberText: {
     fontSize: 11,
     fontWeight: typography.weight.bold,
-    color: colors.textInverse,
+    color: colors.primaryDark,
   },
   stepText: {
+    flex: 1,
     fontSize: typography.size.xs + 1,
     color: colors.textPrimary,
-    flex: 1,
     lineHeight: 20,
   },
   portalActionBox: {
-    marginVertical: spacing.sm,
     alignItems: 'center',
+    marginBottom: spacing.md,
   },
   portalSubNote: {
-    fontSize: 11,
+    fontSize: typography.size.xs - 1,
     color: colors.textMuted,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
   safetyBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.status.attention.bg,
-    borderWidth: 1,
-    borderColor: colors.status.attention.border,
+    backgroundColor: colors.accentSoft,
+    padding: spacing.md,
     borderRadius: borderRadius.md,
-    padding: spacing.sm + 2,
-    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   safetyText: {
-    fontSize: 11,
-    color: colors.status.attention.text,
     flex: 1,
-    lineHeight: 16,
+    fontSize: typography.size.xs,
+    color: colors.primaryDark,
+    lineHeight: 18,
+    fontWeight: typography.weight.medium,
   },
-  bottomRow: {
+  bottomActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
 });
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -14,8 +15,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
-import { spacing, borderRadius, shadows } from '../constants/layout';
+import { spacing, borderRadius, shadows, typography } from '../constants/layout';
 import { useAuth } from '../context/AuthContext';
+import { FriendlyBee } from '../components/illustrations';
 import {
   sendVoiceTurn,
   sendTextTurn,
@@ -38,6 +40,24 @@ const SUPPORTED_LANGUAGES = [
   { code: 'hi-IN', label: 'हिन्दी', sub: 'Hindi' },
   { code: 'en-IN', label: 'English', sub: 'Indian English' },
 ];
+
+const SUGGESTED_PROMPTS = {
+  'kn-IN': [
+    'ಹೈವ್ 1 ನ ತಾಪಮಾನ ಹೇಗಿದೆ?',
+    'ಜೇನುತುಪ್ಪ ಕೊಯ್ಲು ಯಾವಾಗ ಮಾಡಬೇಕು?',
+    'ಸರ್ಕಾರದ ಸಬ್ಸಿಡಿ ಯೋಜನೆಗಳ ವಿವರ ನೀಡಿ',
+  ],
+  'hi-IN': [
+    'हाइव 1 का तापमान कैसा है?',
+    'शहद की कटाई कब करनी चाहिए?',
+    'मधुमक्खी पालन की सरकारी योजनाएं बताएं',
+  ],
+  'en-IN': [
+    'How is Hive 1 doing today?',
+    'When should I harvest honey?',
+    'Check government subsidy schemes',
+  ],
+};
 
 /**
  * Generates a warm, time-of-day greeting personalized with the beekeeper's name
@@ -95,14 +115,27 @@ export function TalkToHoneyChain({ visible, onClose }) {
   const recorderRef = useRef(null);
   const recordTimerRef = useRef(null);
   const recordStartTimeRef = useRef(0);
-  const greetingPlayedRef = useRef(false);
+
+  const cleanupAudio = useCallback(async () => {
+    clearInterval(recordTimerRef.current);
+    if (recorderRef.current) {
+      try {
+        if (typeof recorderRef.current.stop === 'function') {
+          await recorderRef.current.stop();
+        }
+      } catch (_) {}
+      recorderRef.current = null;
+    }
+    stopAudioPlayback();
+    setIsPlayingGreeting(false);
+  }, []);
 
   useEffect(() => {
     setCanRecord(isRecordingSupported());
     return () => {
       cleanupAudio();
     };
-  }, []);
+  }, [cleanupAudio]);
 
   /**
    * Speaks the personalized greeting aloud via Edge TTS or on-device fallback
@@ -158,21 +191,7 @@ export function TalkToHoneyChain({ visible, onClose }) {
     } else {
       cleanupAudio();
     }
-  }, [visible, beekeeperName, selectedLanguage, playGreetingAudio]);
-
-  const cleanupAudio = async () => {
-    clearInterval(recordTimerRef.current);
-    if (recorderRef.current) {
-      try {
-        if (typeof recorderRef.current.stop === 'function') {
-          await recorderRef.current.stop();
-        }
-      } catch (_) {}
-      recorderRef.current = null;
-    }
-    stopAudioPlayback();
-    setIsPlayingGreeting(false);
-  };
+  }, [visible, beekeeperName, selectedLanguage, playGreetingAudio, cleanupAudio]);
 
   /**
    * BARGE-IN HANDLER: Stops any currently active speech playback
@@ -368,13 +387,15 @@ export function TalkToHoneyChain({ visible, onClose }) {
     }
   };
 
+  const prompts = SUGGESTED_PROMPTS[selectedLanguage] || SUGGESTED_PROMPTS['en-IN'];
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header */}
+        {/* Header with Mascot */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => {
@@ -382,17 +403,26 @@ export function TalkToHoneyChain({ visible, onClose }) {
               onClose();
             }}
             style={styles.closeButton}
+            activeOpacity={0.7}
           >
-            <Ionicons name="close" size={24} color={colors.textPrimary} />
+            <Ionicons name="close" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
+
           <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Talk to HoneyChain</Text>
-            <Text style={styles.headerSubtitle}>AI Voice Assistant for Beekeepers</Text>
+            <View style={styles.headerMascotRow}>
+              <FriendlyBee size={24} style={{ marginRight: 6 }} />
+              <Text style={styles.headerTitle}>HoneyChain AI</Text>
+            </View>
+            <Text style={styles.headerSubtitle}>Apicultural Voice Assistant</Text>
           </View>
-          <View style={{ width: 36 }} />
+
+          <View style={styles.beeHeaderBadge}>
+            <Ionicons name="shield-checkmark" size={13} color={colors.primaryDark} />
+            <Text style={styles.beeHeaderBadgeText}>Active</Text>
+          </View>
         </View>
 
-        {/* Language Selector */}
+        {/* Language Selector Bar */}
         <View style={styles.languageBar}>
           {SUPPORTED_LANGUAGES.map((lang) => {
             const isSelected = selectedLanguage === lang.code;
@@ -401,6 +431,7 @@ export function TalkToHoneyChain({ visible, onClose }) {
                 key={lang.code}
                 style={[styles.langChip, isSelected && styles.langChipActive]}
                 onPress={() => handleSelectLanguage(lang.code)}
+                activeOpacity={0.75}
               >
                 <Text style={[styles.langLabel, isSelected && styles.langLabelActive]}>
                   {lang.label}
@@ -414,20 +445,22 @@ export function TalkToHoneyChain({ visible, onClose }) {
         </View>
 
         {/* Conversation Area */}
-        <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
-          {/* Status Indicator */}
+        <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Status & Live State Banner */}
           <View style={styles.statusCard}>
             {isPlayingGreeting && (
               <View style={styles.statusRow}>
-                <Ionicons name="volume-high" size={24} color={colors.primary} />
-                <Text style={[styles.statusText, { color: colors.primary, fontWeight: '600', flex: 1 }]}>
+                <View style={styles.statusIconWrap}>
+                  <Ionicons name="volume-high" size={20} color={colors.primaryDark} />
+                </View>
+                <Text style={[styles.statusText, { color: colors.primaryDark, fontWeight: '700', flex: 1 }]}>
                   {selectedLanguage.startsWith('kn')
                     ? 'ಶುಭಾಶಯ ನುಡಿಯುತ್ತಿದೆ...'
                     : selectedLanguage.startsWith('hi')
                     ? 'स्वागत संदेश बोल रहा है...'
                     : 'Speaking greeting...'}
                 </Text>
-                <TouchableOpacity onPress={stopPlayback} style={styles.stopButton}>
+                <TouchableOpacity onPress={stopPlayback} style={styles.stopButton} activeOpacity={0.7}>
                   <Text style={styles.stopButtonText}>Stop</Text>
                 </TouchableOpacity>
               </View>
@@ -435,11 +468,13 @@ export function TalkToHoneyChain({ visible, onClose }) {
 
             {!isPlayingGreeting && assistantState === 'idle' && (
               <View style={styles.statusRow}>
-                <Ionicons name="mic-circle" size={26} color={colors.primary} />
+                <View style={styles.statusIconWrap}>
+                  <Ionicons name="mic-circle" size={22} color={colors.primaryDark} />
+                </View>
                 <Text style={styles.statusText}>
                   {canRecord
-                    ? 'Hold the microphone to speak, or type your question below'
-                    : 'Type below to ask HoneyChain AI about your hives'}
+                    ? 'Hold the microphone to speak, or tap a suggestion below'
+                    : 'Type below to ask HoneyChain AI about your apiary'}
                 </Text>
               </View>
             )}
@@ -447,7 +482,7 @@ export function TalkToHoneyChain({ visible, onClose }) {
             {assistantState === 'recording' && (
               <View style={styles.statusRow}>
                 <View style={styles.pulseDot} />
-                <Text style={[styles.statusText, { color: colors.error, fontWeight: '700' }]}>
+                <Text style={[styles.statusText, { color: colors.deepHoney, fontWeight: '700' }]}>
                   Listening ({recordSeconds}s)... Release when finished speaking
                 </Text>
               </View>
@@ -455,25 +490,27 @@ export function TalkToHoneyChain({ visible, onClose }) {
 
             {assistantState === 'transcribing' && (
               <View style={styles.statusRow}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.primaryDark} />
                 <Text style={styles.statusText}>Transcribing speech with Whisper...</Text>
               </View>
             )}
 
             {assistantState === 'thinking' && (
               <View style={styles.statusRow}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.primaryDark} />
                 <Text style={styles.statusText}>Consulting apiary knowledge & generating voice answer...</Text>
               </View>
             )}
 
             {assistantState === 'speaking' && (
               <View style={styles.statusRow}>
-                <Ionicons name="volume-high" size={24} color={colors.success} />
-                <Text style={[styles.statusText, { color: colors.success, fontWeight: '600', flex: 1 }]}>
+                <View style={[styles.statusIconWrap, { backgroundColor: '#EBF4E5' }]}>
+                  <Ionicons name="volume-high" size={20} color={colors.sage} />
+                </View>
+                <Text style={[styles.statusText, { color: colors.sage, fontWeight: '700', flex: 1 }]}>
                   Speaking answer...
                 </Text>
-                <TouchableOpacity onPress={stopPlayback} style={styles.stopButton}>
+                <TouchableOpacity onPress={stopPlayback} style={styles.stopButton} activeOpacity={0.7}>
                   <Text style={styles.stopButtonText}>Stop Audio</Text>
                 </TouchableOpacity>
               </View>
@@ -481,43 +518,77 @@ export function TalkToHoneyChain({ visible, onClose }) {
 
             {assistantState === 'error' && (
               <View style={styles.statusRow}>
-                <Ionicons name="alert-circle" size={24} color={colors.error} />
-                <Text style={[styles.statusText, { color: colors.error, flex: 1 }]}>
+                <Ionicons name="alert-circle" size={22} color={colors.status.critical.text} />
+                <Text style={[styles.statusText, { color: colors.status.critical.text, flex: 1 }]}>
                   {errorMessage || 'An error occurred.'}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* 3. Transcript / Question */}
+          {/* Greeting Card */}
+          {Boolean(greetingText) && (
+            <View style={styles.greetingBubble}>
+              <View style={styles.bubbleHeaderRow}>
+                <FriendlyBee size={20} />
+                <Text style={styles.assistantBubbleTitle}>HoneyChain Assistant</Text>
+              </View>
+              <Text style={styles.greetingText}>{greetingText}</Text>
+            </View>
+          )}
+
+          {/* Quick Suggestions Chips (Visible when not actively conversing) */}
+          {!transcript && !answer && assistantState === 'idle' && (
+            <View style={styles.suggestionsContainer}>
+              <Text style={styles.suggestionsTitle}>Suggested Inquiries</Text>
+              <View style={styles.suggestionsGrid}>
+                {prompts.map((p, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.suggestionChip}
+                    onPress={() => handleSendText(p)}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primaryDark} />
+                    <Text style={styles.suggestionChipText}>{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Beekeeper's Transcript / Question Bubble */}
           {Boolean(transcript) && (
-            <View style={styles.turnCard}>
-              <View style={styles.turnHeader}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textSecondary} />
-                <Text style={styles.turnRole}>You Asked</Text>
+            <View style={styles.userBubble}>
+              <View style={styles.bubbleHeaderRow}>
+                <Ionicons name="person-circle" size={18} color={colors.primaryDark} />
+                <Text style={styles.userBubbleTitle}>You Asked</Text>
               </View>
               <Text style={styles.transcriptText}>{transcript}</Text>
             </View>
           )}
 
-          {/* 4. AI Grounded Answer */}
+          {/* AI Grounded Answer Bubble */}
           {Boolean(answer) && (
-            <View style={styles.answerCard}>
-              <View style={styles.turnHeader}>
-                <Ionicons name="sparkles" size={18} color={colors.primary} />
-                <Text style={styles.turnRoleHoneyChain}>HoneyChain Answer</Text>
+            <View style={styles.assistantBubble}>
+              <View style={styles.bubbleHeaderRow}>
+                <FriendlyBee size={22} />
+                <Text style={styles.assistantBubbleTitle}>HoneyChain Response</Text>
                 {isMockActive && (
                   <View style={styles.mockBadge}>
-                    <Text style={styles.mockBadgeText}>MOCK MODE</Text>
+                    <Text style={styles.mockBadgeText}>OFFLINE MODE</Text>
                   </View>
                 )}
               </View>
               <Text style={styles.answerText}>{answer}</Text>
 
-              {/* Citations */}
+              {/* Citations & Apicultural Guidelines */}
               {citations && citations.length > 0 && (
                 <View style={styles.citationsBox}>
-                  <Text style={styles.citationsTitle}>Sources & References:</Text>
+                  <View style={styles.citationsHeaderRow}>
+                    <Ionicons name="book-outline" size={13} color={colors.sage} />
+                    <Text style={styles.citationsTitle}>Apicultural References:</Text>
+                  </View>
                   {citations.map((cite, index) => (
                     <Text key={index} style={styles.citationItem}>
                       • {cite}
@@ -526,29 +597,35 @@ export function TalkToHoneyChain({ visible, onClose }) {
                 </View>
               )}
 
-              {/* Human Escalation Option */}
+              {/* Specialist / Human Escalation Option */}
               <View style={styles.humanSupportBox}>
                 <Text style={styles.humanSupportNotice}>
                   {needsHumanSupport
-                    ? '⚠️ This query was marked for specialist attention. Would you like a field officer to call you back?'
-                    : 'Need human assistance with this hive?'}
+                    ? '⚠️ This query was marked for specialist attention. Would you like an apicultural field officer to call you back?'
+                    : 'Need human assistance with your apiary?'}
                 </Text>
                 <TouchableOpacity
                   style={[styles.callbackButton, isCallbackSaved && styles.callbackButtonSuccess]}
                   onPress={handleRequestCallback}
                   disabled={isSubmittingCallback || isCallbackSaved}
+                  activeOpacity={0.8}
                 >
                   {isSubmittingCallback ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color="#493D32" />
                   ) : (
                     <>
                       <Ionicons
-                        name={isCallbackSaved ? 'checkmark-circle' : 'call-outline'}
-                        size={18}
-                        color="#fff"
+                        name={isCallbackSaved ? 'checkmark-circle' : 'call'}
+                        size={16}
+                        color={isCallbackSaved ? '#FFFFFF' : '#493D32'}
                       />
-                      <Text style={styles.callbackButtonText}>
-                        {isCallbackSaved ? 'Callback Requested' : 'Request Human Callback'}
+                      <Text
+                        style={[
+                          styles.callbackButtonText,
+                          isCallbackSaved && { color: '#FFFFFF' },
+                        ]}
+                      >
+                        {isCallbackSaved ? 'Callback Scheduled' : 'Request Apicultural Support Call'}
                       </Text>
                     </>
                   )}
@@ -558,9 +635,9 @@ export function TalkToHoneyChain({ visible, onClose }) {
           )}
         </ScrollView>
 
-        {/* Bottom Control Bar */}
+        {/* Bottom Push-to-Talk Bar */}
         <View style={styles.bottomBar}>
-          {/* Text Input Row */}
+          {/* Quick Text Input Row */}
           <View style={styles.inputRow}>
             <TextInput
               style={styles.textInput}
@@ -569,9 +646,9 @@ export function TalkToHoneyChain({ visible, onClose }) {
                   ? 'ಇಲ್ಲಿ ಪ್ರಶ್ನೆ ಟೈಪ್ ಮಾಡಿ...'
                   : selectedLanguage.startsWith('hi')
                   ? 'यहाँ सवाल टाइप करें...'
-                  : 'Or type a question...'
+                  : 'Or type your beekeeping question...'
               }
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.textMuted}
               value={textInput}
               onChangeText={setTextInput}
               onSubmitEditing={() => handleSendText()}
@@ -581,17 +658,18 @@ export function TalkToHoneyChain({ visible, onClose }) {
                 style={styles.sendButton}
                 onPress={() => handleSendText()}
                 disabled={assistantState === 'thinking' || assistantState === 'transcribing'}
+                activeOpacity={0.8}
               >
-                <Ionicons name="send" size={18} color="#fff" />
+                <Ionicons name="arrow-up" size={18} color="#493D32" />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Push-to-Talk Mic Button */}
+          {/* Push-to-Talk Microphone Button */}
           {canRecord && (
             <View style={styles.micWrap}>
               <TouchableOpacity
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 disabled={assistantState === 'thinking' || assistantState === 'transcribing'}
@@ -603,17 +681,17 @@ export function TalkToHoneyChain({ visible, onClose }) {
               >
                 <Ionicons
                   name={assistantState === 'recording' ? 'radio' : 'mic'}
-                  size={36}
-                  color="#fff"
+                  size={32}
+                  color={assistantState === 'recording' ? '#FFFDF7' : '#493D32'}
                 />
               </TouchableOpacity>
               <Text style={styles.micHint}>
                 {assistantState === 'recording'
                   ? 'Release to Send'
                   : assistantState === 'transcribing'
-                  ? 'Transcribing...'
+                  ? 'Transcribing audio...'
                   : assistantState === 'thinking'
-                  ? 'Thinking...'
+                  ? 'Analyzing...'
                   : assistantState === 'speaking'
                   ? 'Tap to Interrupt'
                   : 'Hold to Speak'}
@@ -635,60 +713,90 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingTop: Platform.OS === 'ios' ? 54 : 36,
-    paddingBottom: spacing.sm,
-    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingTop: Platform.OS === 'ios' ? 54 : 40,
+    paddingBottom: spacing.sm + 2,
+    backgroundColor: colors.cardSurface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.surfaceBorder,
+    ...shadows.card,
   },
   closeButton: {
-    padding: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
   },
   headerTitleWrap: {
     alignItems: 'center',
   },
+  headerMascotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: typography.size.md + 2,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
+  },
+  beeHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSecondary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    gap: 3,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+  },
+  beeHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
   },
   languageBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardSurface,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    gap: 10,
+    paddingVertical: 8,
+    gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.surfaceBorder,
   },
   langChip: {
     flex: 1,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: borderRadius.md,
     backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.surfaceBorder,
     alignItems: 'center',
   },
   langChipActive: {
-    backgroundColor: colors.primary + '18',
+    backgroundColor: colors.surfaceSecondary,
     borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   langLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: typography.weight.semibold,
     color: colors.textPrimary,
   },
   langLabelActive: {
-    color: colors.primary,
-    fontWeight: '700',
+    color: colors.primaryDark,
+    fontWeight: typography.weight.bold,
   },
   langSub: {
     fontSize: 10,
@@ -696,7 +804,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   langSubActive: {
-    color: colors.primary,
+    color: colors.primaryDark,
+    fontWeight: typography.weight.bold,
   },
   scrollArea: {
     flex: 1,
@@ -704,109 +813,187 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
     gap: spacing.md,
+    paddingBottom: spacing.xl,
   },
-  // Status Card
   statusCard: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    ...shadows.card,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  statusIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+  },
   statusText: {
     fontSize: 13,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: typography.weight.medium,
     flex: 1,
+    lineHeight: 18,
   },
   pulseDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.error,
+    backgroundColor: colors.deepHoney,
   },
   stopButton: {
-    backgroundColor: colors.error + '18',
+    backgroundColor: colors.surfaceSecondary,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   stopButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.error,
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
-  turnCard: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.md,
+  greetingBubble: {
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
     borderLeftWidth: 4,
-    borderLeftColor: colors.textSecondary,
-    ...shadows.sm,
+    borderLeftColor: colors.primary,
+    ...shadows.card,
   },
-  turnHeader: {
+  bubbleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 6,
   },
-  turnRole: {
-    fontSize: 12,
-    fontWeight: '600',
+  assistantBubbleTitle: {
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  greetingText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 21,
+  },
+  suggestionsContainer: {
+    marginTop: 4,
+  },
+  suggestionsTitle: {
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
     color: colors.textSecondary,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  suggestionsGrid: {
+    gap: 8,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.cardSurface,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  suggestionChipText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    fontWeight: typography.weight.medium,
+    flex: 1,
+  },
+  userBubble: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
+    alignSelf: 'flex-end',
+    maxWidth: '92%',
+    ...shadows.sm,
+  },
+  userBubbleTitle: {
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   transcriptText: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textPrimary,
-    lineHeight: 22,
+    lineHeight: 21,
+    fontWeight: typography.weight.medium,
   },
-  answerCard: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.md,
+  assistantBubble: {
+    backgroundColor: colors.cardSurface,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
-    ...shadows.md,
-  },
-  turnRoleHoneyChain: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-    textTransform: 'uppercase',
+    ...shadows.card,
   },
   mockBadge: {
-    backgroundColor: colors.warning + '25',
+    backgroundColor: colors.surfaceSecondary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginLeft: 'auto',
+    borderWidth: 1,
+    borderColor: colors.softAmber,
   },
   mockBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.warning,
+    fontSize: 9,
+    fontWeight: typography.weight.bold,
+    color: colors.primaryDark,
   },
   answerText: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textPrimary,
-    lineHeight: 23,
+    lineHeight: 22,
   },
   citationsBox: {
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    borderTopColor: colors.surfaceBorder,
+  },
+  citationsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
   },
   citationsTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
+    color: colors.sage,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   citationItem: {
     fontSize: 12,
@@ -817,7 +1004,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    borderTopColor: colors.surfaceBorder,
     gap: 8,
   },
   humanSupportNotice: {
@@ -833,23 +1020,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 10,
     borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primaryDark,
   },
   callbackButtonSuccess: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.sage,
+    borderColor: colors.sage,
   },
   callbackButtonText: {
-    color: '#fff',
+    color: '#493D32',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: typography.weight.bold,
   },
   bottomBar: {
     paddingHorizontal: spacing.md,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 28 : 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardSurface,
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-    gap: 12,
+    borderTopColor: colors.surfaceBorder,
+    gap: 10,
+    ...shadows.card,
   },
   inputRow: {
     flexDirection: 'row',
@@ -858,8 +1049,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     paddingHorizontal: 14,
     paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceBorder,
   },
   textInput: {
     flex: 1,
@@ -875,6 +1066,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 6,
+    borderWidth: 1,
+    borderColor: colors.primaryDark,
   },
   micWrap: {
     alignItems: 'center',
@@ -887,10 +1080,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primaryDark,
     ...shadows.lg,
   },
   micButtonRecording: {
-    backgroundColor: colors.error,
+    backgroundColor: colors.deepHoney,
+    borderColor: colors.primary,
     transform: [{ scale: 1.08 }],
   },
   micButtonDisabled: {
@@ -898,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   micHint: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: typography.weight.bold,
     color: colors.textSecondary,
   },
 });

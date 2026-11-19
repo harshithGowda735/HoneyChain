@@ -11,7 +11,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 
 const HIVES_STORAGE_KEY_PREFIX = '@honeychain_hives_';
 
@@ -61,6 +61,9 @@ export async function getUserHives(uid) {
   if (!uid) return [];
 
   const localHives = await getLocalHives(uid);
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    return localHives;
+  }
 
   try {
     const hivesRef = collection(db, 'hives');
@@ -159,17 +162,19 @@ export async function createHive(uid, hiveData) {
   const updatedLocal = [newHive, ...localHives];
   await saveLocalHives(uid, updatedLocal);
 
-  // 2. Non-blocking cloud sync with fast timeout
-  withTimeout(
-    setDoc(doc(db, 'hives', newId), {
-      ...newHive,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }),
-    1200
-  ).catch((err) => {
-    console.log('[HiveService] Hive saved locally (cloud deferred):', err?.message);
-  });
+  // 2. Non-blocking cloud sync with fast timeout (only when authenticated)
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    withTimeout(
+      setDoc(doc(db, 'hives', newId), {
+        ...newHive,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+      1200
+    ).catch((err) => {
+      console.log('[HiveService] Hive saved locally (cloud deferred):', err?.message);
+    });
+  }
 
   return newHive;
 }
@@ -191,9 +196,11 @@ export async function updateHive(hiveId, uid, hiveData) {
   delete safeData.id;
   safeData.updatedAt = serverTimestamp();
 
-  withTimeout(updateDoc(doc(db, 'hives', hiveId), safeData), 1200).catch((err) => {
-    console.log('[HiveService] Hive updated locally (cloud deferred):', err?.message);
-  });
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    withTimeout(updateDoc(doc(db, 'hives', hiveId), safeData), 1200).catch((err) => {
+      console.log('[HiveService] Hive updated locally (cloud deferred):', err?.message);
+    });
+  }
 
   return updatedLocal.find((h) => h.id === hiveId);
 }
@@ -207,9 +214,11 @@ export async function deleteHive(hiveId, uid) {
   await saveLocalHives(uid, updatedLocal);
 
   // 2. Non-blocking cloud delete with fast timeout
-  withTimeout(deleteDoc(doc(db, 'hives', hiveId)), 1200).catch((err) => {
-    console.log('[HiveService] Hive deleted locally (cloud deferred):', err?.message);
-  });
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    withTimeout(deleteDoc(doc(db, 'hives', hiveId)), 1200).catch((err) => {
+      console.log('[HiveService] Hive deleted locally (cloud deferred):', err?.message);
+    });
+  }
 
   return { success: true, id: hiveId };
 }

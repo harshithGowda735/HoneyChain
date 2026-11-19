@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { spacing, borderRadius, typography } from '../../constants/layout';
+import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
 import AppCard from '../common/AppCard';
 import AppButton from '../common/AppButton';
 import { useLanguage } from '../../context/LanguageContext';
@@ -47,10 +47,10 @@ export function SchemeCard({
           <Ionicons
             name="business-outline"
             size={13}
-            color={isCentral ? colors.primary : colors.accentDeep}
+            color={isCentral ? colors.primaryDark : colors.sageDark}
           />
           <Text style={[styles.authorityText, isCentral ? styles.centralText : styles.stateText]}>
-            {isCentral ? t('filterCentral') : t('filterKarnataka')}
+            {isCentral ? t('filterCentral', 'Central Govt') : t('filterKarnataka', 'Karnataka State')}
           </Text>
         </View>
 
@@ -62,8 +62,8 @@ export function SchemeCard({
         >
           <Ionicons
             name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-            size={24}
-            color={isBookmarked ? colors.primary : colors.textMuted}
+            size={22}
+            color={isBookmarked ? colors.primaryDark : colors.textMuted}
           />
         </TouchableOpacity>
       </View>
@@ -74,7 +74,7 @@ export function SchemeCard({
         {displayDept}
       </Text>
 
-      {/* Big Farmer-Friendly Subsidy / Benefit Highlight */}
+      {/* Subsidy / Benefit Highlight Card */}
       <View style={styles.subsidyBanner}>
         <View style={styles.subsidyIconCircle}>
           <Text style={styles.rupeeIcon}>₹</Text>
@@ -95,13 +95,13 @@ export function SchemeCard({
             { color: isMatched ? colors.status.healthy.text : colors.status.attention.text },
           ]}
         >
-          {isMatched ? t('relevanceRelevant') : t('relevanceNeedInfo')}
+          {isMatched ? t('relevanceRelevant', 'Eligible & Relevant') : t('relevanceNeedInfo', 'Review Eligibility')}
         </Text>
       </View>
 
       {/* Action Button */}
       <AppButton
-        title={t('viewDetails')}
+        title={t('viewDetails', 'View Details')}
         iconName="arrow-forward"
         variant="primary"
         size="md"
@@ -115,8 +115,11 @@ export function SchemeCard({
 const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
+    padding: spacing.md + 2,
+    borderRadius: borderRadius.xl,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surface,
+    ...shadows.card,
   },
   topRow: {
     flexDirection: 'row',
@@ -131,20 +134,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: borderRadius.sm,
+    borderWidth: 1,
   },
   centralBadge: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.backgroundSecondary,
+    borderColor: colors.softAmber,
   },
   centralText: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: typography.weight.bold,
     fontSize: 11,
   },
   stateBadge: {
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.sageLight,
+    borderColor: colors.sage,
   },
   stateText: {
-    color: colors.accentDeep,
+    color: colors.sageDark,
     fontWeight: typography.weight.bold,
     fontSize: 11,
   },
@@ -159,8 +165,8 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md + 1,
     fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    lineHeight: 22,
     marginTop: 2,
+    lineHeight: 22,
   },
   departmentText: {
     fontSize: typography.size.xs,
@@ -171,11 +177,11 @@ const styles = StyleSheet.create({
   subsidyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9F4',
-    borderWidth: 1,
-    borderColor: '#C6E8D6',
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
     padding: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
     marginBottom: spacing.sm,
     gap: spacing.sm,
   },
@@ -183,20 +189,22 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.softAmber,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rupeeIcon: {
-    color: colors.textInverse,
+    fontSize: 14,
     fontWeight: typography.weight.bold,
-    fontSize: 15,
+    color: colors.primaryDark,
   },
   subsidyText: {
     flex: 1,
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: colors.primary,
+    fontSize: typography.size.xs + 1,
+    color: colors.textPrimary,
+    fontWeight: typography.weight.medium,
     lineHeight: 18,
   },
   statusRow: {

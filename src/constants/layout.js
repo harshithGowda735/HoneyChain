@@ -1,5 +1,6 @@
 /**
- * Layout and Spacing Design Tokens
+ * Layout, Spacing, and Typography Design Tokens
+ * HoneyChain Warm Ivory Design System
  */
 
 export const spacing = {
@@ -13,10 +14,12 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 18,
+  xl: 24,
+  xxl: 32,
   full: 9999,
 };
 
@@ -39,26 +42,40 @@ export const typography = {
 };
 
 export const shadows = {
-  card: {
-    shadowColor: '#1E2924',
+  sm: {
+    shadowColor: '#493D32',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  card: {
+    shadowColor: '#493D32',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 1,
   },
   cardElevated: {
-    shadowColor: '#1E2924',
+    shadowColor: '#493D32',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
   },
+  glow: {
+    shadowColor: '#F5AC19',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
   tabBar: {
-    shadowColor: '#1E2924',
+    shadowColor: '#493D32',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 3,
   },
 };
 

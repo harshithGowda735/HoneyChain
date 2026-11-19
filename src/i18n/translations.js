@@ -168,6 +168,25 @@ export const TRANSLATIONS = {
     signOut: 'Sign Out',
     saveProfile: 'Save Profile',
 
+    // Government Schemes
+    searchSchemesPlaceholder: 'Search schemes by name, ministry, subsidy...',
+    noSchemesFound: 'No government schemes found',
+    filterCentral: 'Central Govt',
+    filterKarnataka: 'Karnataka State',
+    relevanceRelevant: 'Eligible & Relevant',
+    relevanceNeedInfo: 'Review Eligibility',
+    viewDetails: 'View Details',
+    schemeWhatYouGet: 'Key Benefits & Subsidy',
+    schemeWhoCanApply: 'Who Can Apply (Eligibility)',
+    schemeDocuments: 'Required Documents',
+    schemeHowToApply: 'How to Apply',
+    openPortal: 'Open Official Portal',
+    schemeSafetyNotice: 'Always verify scheme terms and apply through official government portals or district offices.',
+    removeSaved: 'Remove Bookmark',
+    saveScheme: 'Save Scheme',
+    publicVerificationTitle: 'PUBLIC HONEY VERIFICATION',
+    scanJarPrompt: 'Scan any HoneyChain QR code on a honey jar to verify authentic purity and source hives without signing in.',
+
     // Common Actions & Alerts
     close: 'Close',
     cancel: 'Cancel',
@@ -341,6 +360,25 @@ export const TRANSLATIONS = {
     signOut: 'ಲಾಗ್ ಔಟ್',
     saveProfile: 'ಪ್ರೊಫೈಲ್ ಉಳಿಸಿ',
 
+    // Government Schemes
+    searchSchemesPlaceholder: 'ಯೋಜನೆಗಳು, ಸಬ್ಸಿಡಿ ಅಥವಾ ಇಲಾಖೆ ಹುಡುಕಿ...',
+    noSchemesFound: 'ಯಾವುದೇ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ',
+    filterCentral: 'ಕೇಂದ್ರ ಸರ್ಕಾರ',
+    filterKarnataka: 'ಕರ್ನಾಟಕ ರಾಜ್ಯ',
+    relevanceRelevant: 'ಅರ್ಹ ಮತ್ತು ಸೂಕ್ತ',
+    relevanceNeedInfo: 'ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ',
+    viewDetails: 'ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+    schemeWhatYouGet: 'ಪ್ರಮುಖ ಪ್ರಯೋಜನಗಳು ಮತ್ತು ಸಬ್ಸಿಡಿ',
+    schemeWhoCanApply: 'ಯಾರು ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು (ಅರ್ಹತೆ)',
+    schemeDocuments: 'ಅಗತ್ಯ ದಾಖಲೆಗಳು',
+    schemeHowToApply: 'ಅರ್ಜಿ ಸಲ್ಲಿಸುವುದು ಹೇಗೆ',
+    openPortal: 'ಅಧಿಕೃತ ಪೋರ್ಟಲ್‌ಗೆ ಹೋಗಿ',
+    schemeSafetyNotice: 'ಯಾವಾಗಲೂ ಅಧಿಕೃತ ಸರ್ಕಾರಿ ಪೋರ್ಟಲ್ ಅಥವಾ ಜಿಲ್ಲಾ ಕಚೇರಿಗಳ ಮೂಲಕವೇ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ.',
+    removeSaved: 'ಬುಕ್‌ಮಾರ್ಕ್ ತೆಗೆಯಿರಿ',
+    saveScheme: 'ಯೋಜನೆ ಉಳಿಸಿ',
+    publicVerificationTitle: 'ಸಾರ್ವಜನಿಕ ಜೇನು ದೃಢೀಕರಣ',
+    scanJarPrompt: 'ಜೇನಿನ ಬಾಟಲಿಯ ಮೇಲಿರುವ ಕ್ಯೂಆರ್ ಕೋಡ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ ಅಧಿಕೃತತೆ ಪರಿಶೀಲಿಸಿ.',
+
     // Common Actions & Alerts
     close: 'ಮುಚ್ಚಿ',
     cancel: 'ರದ್ದುಮಾಡಿ',
@@ -513,6 +551,25 @@ export const TRANSLATIONS = {
     temperatureUnit: 'तापमान इकाई (°C)',
     signOut: 'लॉग आउट',
     saveProfile: 'प्रोफ़ाइल सहेजें',
+
+    // Government Schemes
+    searchSchemesPlaceholder: 'योजना, मंत्रालय या सब्सिडी खोजें...',
+    noSchemesFound: 'कोई सरकारी योजना नहीं मिली',
+    filterCentral: 'केंद्र सरकार',
+    filterKarnataka: 'कर्नाटक राज्य',
+    relevanceRelevant: 'पात्र और प्रासंगिक',
+    relevanceNeedInfo: 'पात्रता जांचें',
+    viewDetails: 'विवरण देखें',
+    schemeWhatYouGet: 'मुख्य लाभ और सब्सिडी',
+    schemeWhoCanApply: 'कौन आवेदन कर सकता है (पात्रता)',
+    schemeDocuments: 'आवश्यक दस्तावेज',
+    schemeHowToApply: 'आवेदन कैसे करें',
+    openPortal: 'आधिकारिक पोर्टल खोलें',
+    schemeSafetyNotice: 'हमेशा आधिकारिक सरकारी पोर्टल या जिला कार्यालयों के माध्यम से ही आवेदन करें।',
+    removeSaved: 'बुकमार्क हटाएं',
+    saveScheme: 'योजना सहेजें',
+    publicVerificationTitle: 'सार्वजनिक शहद सत्यापन',
+    scanJarPrompt: 'शहद की बोतल पर लगे क्यूआर कोड को स्कैन करके प्रामाणिकता जांचें।',
 
     // Common Actions & Alerts
     close: 'बंद करें',
