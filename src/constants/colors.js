@@ -26,6 +26,9 @@ export const colors = {
   accentLight: '#F9D76A',      // Soft amber / pollen
   accentSoft: '#FFF5D9',       // Gentle honey glow
   accentGlow: '#FEF3D6',       // Warm radiant fill
+  deepHoney: '#D98B0B',        // Deep amber honey alias
+  softAmber: '#F9D76A',        // Soft amber alias
+  honeyGold: '#F5AC19',        // Honey gold alias
 
   // Sage / Botanical Accents
   sage: '#879779',             // Sage green
@@ -35,7 +38,9 @@ export const colors = {
   // Backgrounds & Surfaces
   background: '#FFF8E7',       // Primary warm ivory background
   backgroundSecondary: '#FFF1C5', // Secondary warm sand background
+  surfaceSecondary: '#FFF1C5', // Surface secondary warm sand alias
   surface: '#FFFEF8',          // Warm card & container surface
+  cardSurface: '#FFFEF8',      // Card surface alias
   cardBackground: '#FFFEF8',   // Card background alias
   surfaceElevated: '#FFFFFF',
   surfaceSubtle: '#FFF5D9',    // Subtle honey surface

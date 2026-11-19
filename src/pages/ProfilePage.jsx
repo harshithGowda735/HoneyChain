@@ -18,7 +18,6 @@ import colors from '../constants/colors';
 import { spacing, borderRadius, typography, shadows } from '../constants/layout';
 import { globalStyles } from '../styles/globalStyles';
 import AppButton from '../components/common/AppButton';
-import AppCard from '../components/common/AppCard';
 import LanguageSelector from '../components/common/LanguageSelector';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -210,7 +209,7 @@ export function ProfilePage() {
 
         {/* Apiary & Location Information Card */}
         <Text style={styles.sectionHeader}>Apiary & Location</Text>
-        <AppCard elevation="card" style={styles.infoCard}>
+        <View style={styles.card}>
           <View style={styles.infoRow}>
             <View style={styles.infoIconBox}>
               <Ionicons name="home" size={18} color={colors.primaryDark} />
@@ -262,11 +261,11 @@ export function ProfilePage() {
               </Text>
             </View>
           </View>
-        </AppCard>
+        </View>
 
         {/* Language & Unit Preferences */}
         <Text style={styles.sectionHeader}>{t('languagePreference')}</Text>
-        <AppCard elevation="card" style={styles.infoCard}>
+        <View style={styles.card}>
           <View style={styles.settingRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.settingTitle}>{t('language')}</Text>
@@ -289,7 +288,7 @@ export function ProfilePage() {
               thumbColor={colors.cardSurface}
             />
           </View>
-        </AppCard>
+        </View>
 
         {/* Sign Out Action */}
         <View style={styles.signOutSection}>
@@ -443,11 +442,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   heroCard: {
-    backgroundColor: colors.cardSurface,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.surfaceBorder,
     position: 'relative',
     overflow: 'hidden',
@@ -506,7 +505,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.cardSurface,
+    borderColor: colors.surface,
   },
   nameRow: {
     flexDirection: 'row',
@@ -567,10 +566,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  infoCard: {
+  card: {
     marginBottom: spacing.lg,
     padding: spacing.md,
-    backgroundColor: colors.cardSurface,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
@@ -636,7 +635,7 @@ const styles = StyleSheet.create({
   signOutBtn: {
     width: '100%',
     borderColor: colors.status.critical.border,
-    backgroundColor: colors.cardSurface,
+    backgroundColor: colors.surface,
   },
   versionText: {
     fontSize: 11,

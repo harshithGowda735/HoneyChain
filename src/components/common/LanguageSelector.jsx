@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
-import { spacing, borderRadius, typography } from '../../constants/layout';
+import { spacing, borderRadius, typography, shadows } from '../../constants/layout';
 import { useLanguage, LANGUAGES } from '../../context/LanguageContext';
 
 export function LanguageSelector({ style, compact = false }) {
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   pillRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.background,
     borderRadius: borderRadius.full,
     padding: 3,
     borderWidth: 1,
@@ -64,25 +64,23 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   pill: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
   },
   pillActive: {
     backgroundColor: colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.primaryDark,
+    ...shadows.sm,
   },
   pillText: {
-    fontSize: typography.size.xs + 1,
-    fontWeight: typography.weight.bold,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
     color: colors.textSecondary,
   },
   pillTextActive: {
-    color: colors.textInverse,
+    color: colors.textPrimary,
     fontWeight: typography.weight.bold,
   },
 });
